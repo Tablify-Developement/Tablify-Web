@@ -1,0 +1,64 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Next.js
+.next/
+out/
+
+# TailwindCSS
+# Tailwind CSS n'a pas besoin d'entrées spécifiques à ignorer, mais si tu utilises un fichier de build personnalisé, ajoute-le ici.
+# Exemple: dist/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# JetBrains (IntelliJ IDEA, WebStorm, PhpStorm, etc.)
+.idea/
+
+# VSCode
+.vscode/
+
+# Supabase (si tu utilises le client local et les fichiers de configuration)
+supabase/
+
+# Logs
+logs/
+*.log
+
+# Environnement local
+.env*
+.env.local
+.env.development
+.env.production
+.env.test
+.envrc
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Editor config files
+*.sublime-workspace
+*.sublime-project
+*.vscode/
+
+# TSLint / ESLint
+eslint-cache/
+tslint.json
+
+# Build and output
+/dist
+/build
+/.serverless
+
+# NPM global modules
+npm/
