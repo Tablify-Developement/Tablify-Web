@@ -1,8 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
-
+import {ChevronsUpDown, GalleryVerticalEnd, Plus} from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -18,18 +17,22 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar"
+import CreateRestaurantModal from "@/components/CreateRestaurant/CreateRestaurantModal" // Adjust the import path as necessary
 
 export function RestaurantSwitcher({
-                                 teams,
-                             }: {
+                                       teams,
+                                       userId, // Add userId as a prop
+                                   }: {
     teams: {
         name: string
         logo: React.ElementType
         plan: string
     }[]
+    userId: number // Add userId as a prop
 }) {
     const { isMobile } = useSidebar()
-    const [activeTeam, setActiveTeam] = React.useState(teams[0])
+    const [activeTeam, setActiveTeam] = React.useState(teams[0] || { name: "", logo: GalleryVerticalEnd, plan: "" });
+    const [isModalOpen, setIsModalOpen] = React.useState(false) // State to control modal visibility
 
     return (
         <SidebarMenu>
@@ -44,9 +47,9 @@ export function RestaurantSwitcher({
                                 <activeTeam.logo className="size-4" />
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">
-                  {activeTeam.name}
-                </span>
+                                <span className="truncate font-semibold">
+                                    {activeTeam.name}
+                                </span>
                                 <span className="truncate text-xs">{activeTeam.plan}</span>
                             </div>
                             <ChevronsUpDown className="ml-auto" />
@@ -75,15 +78,25 @@ export function RestaurantSwitcher({
                             </DropdownMenuItem>
                         ))}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="gap-2 p-2">
+                        <DropdownMenuItem
+                            className="gap-2 p-2"
+                            onClick={() => setIsModalOpen(true)} // Open modal on click
+                        >
                             <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                                 <Plus className="size-4" />
                             </div>
-                            <div className="font-medium text-muted-foreground">Add team</div>
+                            <div className="font-medium text-muted-foreground">Create Restaurant</div>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </SidebarMenuItem>
+
+            {/* Render the CreateRestaurantModal */}
+            <CreateRestaurantModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)} // Close modal
+                userId={userId} // Pass the userId to the modal
+            />
         </SidebarMenu>
     )
 }
