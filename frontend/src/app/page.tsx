@@ -26,6 +26,11 @@ function Home() {
                 Hello, World!
             </h1>
             <p>Backend says: {message}</p>
+            <div className="mt-4">
+                <a href="/reservations/open" className="text-blue-600 hover:underline">
+                    Voir les réservations ouvertes
+                </a>
+            </div>
         </div>
     );
 }
