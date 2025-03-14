@@ -6,10 +6,10 @@ import { logger } from '../utils/logger';
 export const RestaurantController = {
     // Create a new restaurant
     createRestaurant: async (req: Request, res: Response): Promise<void> => {
-        const { user_id, restaurant_name, address, contact, description } = req.body;
+        const { user_id, restaurant_name, restaurant_type, address, contact, description } = req.body;
 
         // Validate required fields
-        if (!user_id || !restaurant_name || !address || !contact || !description) {
+        if (!user_id || !restaurant_name || !restaurant_type || !address || !contact || !description) {
             logger.warn('All fields are required.');
             res.status(400).json({ error: 'All fields are required' });
             return; // No need to return anything here, just handle the response
@@ -20,6 +20,7 @@ export const RestaurantController = {
             const newRestaurant = await RestaurantModel.createRestaurant(
                 user_id,
                 restaurant_name,
+                restaurant_type,
                 address,
                 contact,
                 description

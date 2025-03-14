@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import {ChevronsUpDown, GalleryVerticalEnd, Plus} from "lucide-react"
+import { ChevronsUpDown, GalleryVerticalEnd, Plus } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,26 +17,40 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar"
-import CreateRestaurantModal from "@/components/CreateRestaurant/CreateRestaurantModal" // Adjust the import path as necessary
+import {CreateRestaurantModal} from "@/components/CreateRestaurant/CreateRestaurantModal"
+
+interface Team {
+    id: number // Ensure id is included
+    name: string
+    logo: React.ElementType<any> // Ensure logo is included
+    plan: string // Ensure plan is included
+}
 
 export function RestaurantSwitcher({
                                        teams,
-                                       userId, // Add userId as a prop
+                                       userId,
+                                       setTeams, // Add setTeams as a prop
                                    }: {
-    teams: {
-        name: string
-        logo: React.ElementType
-        plan: string
-    }[]
-    userId: number // Add userId as a prop
+    teams: Team[] // Use the Team interface
+    userId: number
+    setTeams: React.Dispatch<React.SetStateAction<Team[]>> // Use the Team interface
 }) {
     const { isMobile } = useSidebar()
-    const [activeTeam, setActiveTeam] = React.useState(teams[0] || { name: "", logo: GalleryVerticalEnd, plan: "" });
-    const [isModalOpen, setIsModalOpen] = React.useState(false) // State to control modal visibility
+    const [activeTeam, setActiveTeam] = React.useState(teams[0] || { id: 0, name: "", logo: GalleryVerticalEnd, plan: "" })
+    const [isModalOpen, setIsModalOpen] = React.useState(false)
+
+    // Callback function to handle team creation
+    const handleTeamCreated = (newTeam: Team) => {
+        // Update the teams state with the new team
+        setTeams((prevTeams) => [...prevTeams, newTeam])
+
+        // Also set the new team as active
+        setActiveTeam(newTeam)
+    }
 
     return (
         <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem key="restaurant-dropdown">
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton
@@ -66,7 +80,7 @@ export function RestaurantSwitcher({
                         </DropdownMenuLabel>
                         {teams.map((team, index) => (
                             <DropdownMenuItem
-                                key={team.name}
+                                key={`team-${team.id}`} // Enhanced key with prefix to ensure uniqueness
                                 onClick={() => setActiveTeam(team)}
                                 className="gap-2 p-2"
                             >
@@ -79,6 +93,7 @@ export function RestaurantSwitcher({
                         ))}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
+                            key="create-restaurant" // Added key for this item
                             className="gap-2 p-2"
                             onClick={() => setIsModalOpen(true)} // Open modal on click
                         >
@@ -91,11 +106,20 @@ export function RestaurantSwitcher({
                 </DropdownMenu>
             </SidebarMenuItem>
 
-            {/* Render the CreateRestaurantModal */}
+            {/* The modal component */}
             <CreateRestaurantModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)} // Close modal
-                userId={userId} // Pass the userId to the modal
+                userId={userId}
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+                onSuccess={(newTeam) => {
+                    // Add the new restaurant to the list
+                    handleTeamCreated(newTeam);
+                    console.log("Restaurant created successfully!");
+                }}
+                onError={(error: any) => {
+                    // Handle errors
+                    console.error("Error in parent component:", error);
+                }}
             />
         </SidebarMenu>
     )

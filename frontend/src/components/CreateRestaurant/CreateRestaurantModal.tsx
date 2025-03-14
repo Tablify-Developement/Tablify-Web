@@ -1,155 +1,250 @@
-import React, { useState } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+'use client'
+
+import { useState } from 'react'
+import { Button } from "@/components/ui/button"
 import {
     Dialog,
     DialogContent,
-    DialogHeader,
-    DialogTitle,
     DialogDescription,
     DialogFooter,
-} from '@/components/ui/dialog';
-import { createRestaurant } from '@/services/restaurantService';
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
+import { useForm, ControllerRenderProps } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import * as z from "zod"
+import { createRestaurant } from '@/services/restaurantService'
+import { Loader2, GalleryVerticalEnd } from "lucide-react"
 
-// Zod schema for form validation
-const restaurantSchema = z.object({
-    restaurantName: z.string().min(1, 'Restaurant name is required'),
-    address: z.string().min(1, 'Address is required'),
-    contact: z.string().min(1, 'Contact information is required'),
-    description: z.string().min(1, 'Description is required'),
+// Form validation schema
+const formSchema = z.object({
+    restaurant_name: z.string().min(1, "Restaurant name is required"),
+    restaurant_type: z.string().min(1, "Restaurant type is required"),
+    address: z.string().min(1, "Address is required"),
+    contact: z.string().min(1, "Contact information is required"),
+    description: z.string().optional()
 });
 
-type RestaurantFormData = z.infer<typeof restaurantSchema>;
+type FormValues = z.infer<typeof formSchema>;
 
-interface CreateRestaurantModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    userId: number; // Add userId as a prop
+// Define the Team interface to match your RestaurantSwitcher component
+interface Team {
+    id: number;
+    name: string;
+    logo: React.ElementType<any>;
+    plan: string;
 }
 
-const CreateRestaurantModal: React.FC<CreateRestaurantModalProps> = ({
-                                                                         isOpen,
-                                                                         onClose,
-                                                                         userId // Receive userId as a prop
-                                                                     }) => {
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitError, setSubmitError] = useState<string | null>(null);
-    const [submitSuccess, setSubmitSuccess] = useState(false);
+interface CreateRestaurantModalProps {
+    userId: number;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSuccess?: (newTeam: Team) => void;
+    onError?: (error: unknown) => void;
+}
 
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        reset,
-    } = useForm<RestaurantFormData>({
-        resolver: zodResolver(restaurantSchema),
+export function CreateRestaurantModal({
+                                          userId,
+                                          open,
+                                          onOpenChange,
+                                          onSuccess,
+                                          onError
+                                      }: CreateRestaurantModalProps) {
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const form = useForm<FormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            restaurant_name: "",
+            restaurant_type: "",
+            address: "",
+            contact: "",
+            description: ""
+        }
     });
 
-    const onSubmit: SubmitHandler<RestaurantFormData> = async (data) => {
+    const onSubmit = async (values: FormValues) => {
         setIsSubmitting(true);
-        setSubmitError(null);
-        setSubmitSuccess(false);
+        setError(null);
 
         try {
-            // Use the userId prop instead of hardcoded value
-            await createRestaurant({
-                user_id: userId, // Use the passed userId
-                restaurant_name: data.restaurantName,
-                address: data.address,
-                contact: data.contact,
-                description: data.description,
+            const response = await createRestaurant({
+                user_id: userId,
+                restaurant_name: values.restaurant_name,
+                restaurant_type: values.restaurant_type,
+                address: values.address,
+                contact: values.contact,
+                description: values.description || "",
             });
 
-            // Set success state
-            setSubmitSuccess(true);
+            // Create a new team object from the response
+            const newTeam: Team = {
+                id: response.id || Math.floor(Math.random() * 10000), // Use response ID or generate one if not available
+                name: values.restaurant_name,
+                logo: GalleryVerticalEnd, // Using the default logo you're using elsewhere
+                plan: values.restaurant_type // Using restaurant_type as the plan
+            };
 
-            // Reset form and close modal after a short delay
-            setTimeout(() => {
-                reset();
-                onClose();
-                setSubmitSuccess(false);
-            }, 2000); // Close modal after 2 seconds
+            form.reset();
+            onOpenChange(false);
+
+            // Call onSuccess with the new team data
+            if (onSuccess) {
+                onSuccess(newTeam);
+            }
         } catch (error) {
-            setSubmitError('An error occurred while creating the restaurant.');
+            console.error("Error creating restaurant:", error);
+            setError("Failed to create restaurant. Please try again.");
+
+            if (onError) {
+                onError(error);
+            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>Create a New Restaurant</DialogTitle>
-                    <DialogDescription>Fill out the form to add a new restaurant to the platform.</DialogDescription>
+                    <DialogTitle>Create New Restaurant</DialogTitle>
+                    <DialogDescription>
+                        Add your restaurant details below to create a new restaurant profile.
+                    </DialogDescription>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <div>
-                        <Label htmlFor="restaurantName">Restaurant Name</Label>
-                        <Input
-                            id="restaurantName"
-                            {...register('restaurantName')}
-                            placeholder="Enter restaurant name"
-                        />
-                        {errors.restaurantName && (
-                            <p className="text-sm text-red-500">{errors.restaurantName.message}</p>
-                        )}
+
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-3 text-sm">
+                        {error}
                     </div>
-                    <div>
-                        <Label htmlFor="address">Address</Label>
-                        <Input
-                            id="address"
-                            {...register('address')}
-                            placeholder="Enter address"
+                )}
+
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="restaurant_name"
+                            render={({ field }: { field: ControllerRenderProps<FormValues, "restaurant_name"> }) => (
+                                <FormItem>
+                                    <FormLabel>Restaurant Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Enter restaurant name" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                        {errors.address && (
-                            <p className="text-sm text-red-500">{errors.address.message}</p>
-                        )}
-                    </div>
-                    <div>
-                        <Label htmlFor="contact">Contact</Label>
-                        <Input
-                            id="contact"
-                            {...register('contact')}
-                            placeholder="Enter contact information"
+
+                        <FormField
+                            control={form.control}
+                            name="restaurant_type"
+                            render={({ field }: { field: ControllerRenderProps<FormValues, "restaurant_type"> }) => (
+                                <FormItem>
+                                    <FormLabel>Restaurant Type</FormLabel>
+                                    <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select restaurant type" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="fine_dining">Fine Dining</SelectItem>
+                                            <SelectItem value="casual">Casual</SelectItem>
+                                            <SelectItem value="fast_food">Fast Food</SelectItem>
+                                            <SelectItem value="cafe">Café</SelectItem>
+                                            <SelectItem value="buffet">Buffet</SelectItem>
+                                            <SelectItem value="bistro">Bistro</SelectItem>
+                                            <SelectItem value="pub">Pub</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                        {errors.contact && (
-                            <p className="text-sm text-red-500">{errors.contact.message}</p>
-                        )}
-                    </div>
-                    <div>
-                        <Label htmlFor="description">Description</Label>
-                        <Input
-                            id="description"
-                            {...register('description')}
-                            placeholder="Enter a brief description"
+
+                        <FormField
+                            control={form.control}
+                            name="address"
+                            render={({ field }: { field: ControllerRenderProps<FormValues, "address"> }) => (
+                                <FormItem>
+                                    <FormLabel>Address</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Enter restaurant address" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
                         />
-                        {errors.description && (
-                            <p className="text-sm text-red-500">{errors.description.message}</p>
-                        )}
-                    </div>
-                    {submitError && (
-                        <p className="text-sm text-red-500">{submitError}</p>
-                    )}
-                    {submitSuccess && (
-                        <p className="text-sm text-green-500">Restaurant created successfully!</p>
-                    )}
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={onClose}>
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting ? 'Creating...' : 'Create Restaurant'}
-                        </Button>
-                    </DialogFooter>
-                </form>
+
+                        <FormField
+                            control={form.control}
+                            name="contact"
+                            render={({ field }: { field: ControllerRenderProps<FormValues, "contact"> }) => (
+                                <FormItem>
+                                    <FormLabel>Contact Information</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Phone number or email" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }: { field: ControllerRenderProps<FormValues, "description"> }) => (
+                                <FormItem>
+                                    <FormLabel>Description</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Tell us about your restaurant"
+                                            className="resize-none"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <DialogFooter>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    "Create Restaurant"
+                                )}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );
-};
-
-export default CreateRestaurantModal;
+}
