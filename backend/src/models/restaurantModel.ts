@@ -3,11 +3,11 @@ import { logger } from '../utils/logger';
 
 // Restaurant model
 export const RestaurantModel = {
-    async createRestaurant(user_id: number, restaurant_name: string, address: string, contact: string, description: string) {
+    async createRestaurant(user_id: number, restaurant_name: string, restaurant_type: string, address: string, contact: string, description: string) {
         try {
             const { data, error } = await supabase
                 .from('restaurants')
-                .insert([{ user_id, restaurant_name, address, contact, description, verification: 'pending' }])
+                .insert([{ user_id, restaurant_name, restaurant_type, address, contact, description, verification: 'pending' }])
                 .select();
 
             if (error) throw error;

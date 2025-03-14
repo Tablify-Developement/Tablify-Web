@@ -8,6 +8,7 @@ const API_URL_FETCH = 'http://localhost:3001/api/restaurants/user';
 export const createRestaurant = async (data: {
     user_id: number;
     restaurant_name: string;
+    restaurant_type: string;
     address: string;
     contact: string;
     description: string;

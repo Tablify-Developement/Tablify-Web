@@ -12,6 +12,7 @@ import {
     PieChart,
     Settings2,
     SquareTerminal,
+    LucideIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/Dashboard/NavMain"
@@ -24,85 +25,149 @@ import {
     SidebarHeader,
     SidebarRail,
 } from "@/components/ui/sidebar"
-import {fetchRestaurantsByUserId} from "@/services/restaurantService";
+import { fetchRestaurantsByUserId } from "@/services/restaurantService"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-    const [teams, setTeams] = React.useState([]);
+interface User {
+    name: string
+    email: string
+    avatar: string
+}
+
+interface Team {
+    id: number
+    name: string
+    logo: React.ElementType<any> // Add logo property
+    plan: string // Add plan property
+}
+
+interface NavItem {
+    title: string
+    url: string
+    icon?: LucideIcon
+    isActive?: boolean
+    items?: NavItem[]
+}
+
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {}
+
+export function AppSidebar({ ...props }: AppSidebarProps) {
+    const [teams, setTeams] = React.useState<Team[]>([])
+    const [loading, setLoading] = React.useState(true)
+    const [error, setError] = React.useState<string | null>(null)
+
+    const userId = 2 // Replace with actual user ID
 
     React.useEffect(() => {
         const fetchTeams = async () => {
-            const userId = 1; // Replace with actual user ID
-            const data = await fetchRestaurantsByUserId(userId);
-            setTeams(data);
-        };
+            try {
+                const data = await fetchRestaurantsByUserId(userId)
+                // Transform the data to match the expected structure
+                const transformedData = data.map((team: { id: any; name: any }) => ({
+                    id: team.id,
+                    name: team.name,
+                    logo: Frame, // Replace with the actual logo component
+                    plan: "Free", // Replace with the actual plan
+                }))
+                setTeams(transformedData)
+            } catch (err) {
+                setError("Failed to fetch teams")
+            } finally {
+                setLoading(false)
+            }
+        }
 
-        fetchTeams();
-    }, []);
+        fetchTeams()
+    }, [])
 
-    const data = {
-        user: {
-            name: "shadcn",
-            email: "m@example.com",
-            avatar: "https://github.com/shadcn.png",
+    const user: User = {
+        name: "shadcn",
+        email: "m@example.com",
+        avatar: "https://github.com/shadcn.png",
+    }
+
+    const navMain: NavItem[] = [
+        {
+            title: "Playground",
+            url: "#",
+            icon: SquareTerminal,
+            isActive: true,
+            items: [
+                { title: "History", url: "#", icon: SquareTerminal },
+                { title: "Starred", url: "#", icon: SquareTerminal },
+                { title: "Settings", url: "#", icon: SquareTerminal },
+            ],
         },
-        teams,
-        navMain: [
-            {
-                title: "Playground",
-                url: "#",
-                icon: SquareTerminal,
-                isActive: true,
-                items: [
-                    { title: "History", url: "#" },
-                    { title: "Starred", url: "#" },
-                    { title: "Settings", url: "#" },
-                ],
-            },
-            {
-                title: "Models",
-                url: "#",
-                icon: Bot,
-                items: [
-                    { title: "Genesis", url: "#" },
-                    { title: "Explorer", url: "#" },
-                    { title: "Quantum", url: "#" },
-                ],
-            },
-            {
-                title: "Documentation",
-                url: "#",
-                icon: BookOpen,
-                items: [
-                    { title: "Introduction", url: "#" },
-                    { title: "Get Started", url: "#" },
-                    { title: "Tutorials", url: "#" },
-                    { title: "Changelog", url: "#" },
-                ],
-            },
-            {
-                title: "Settings",
-                url: "#",
-                icon: Settings2,
-                items: [
-                    { title: "General", url: "#" },
-                    { title: "Team", url: "#" },
-                    { title: "Billing", url: "#" },
-                    { title: "Limits", url: "#" },
-                ],
-            },
-        ],
-    };
+        {
+            title: "Models",
+            url: "#",
+            icon: Bot,
+            items: [
+                { title: "Genesis", url: "#", icon: Bot },
+                { title: "Explorer", url: "#", icon: Bot },
+                { title: "Quantum", url: "#", icon: Bot },
+            ],
+        },
+        {
+            title: "Documentation",
+            url: "#",
+            icon: BookOpen,
+            items: [
+                { title: "Introduction", url: "#", icon: BookOpen },
+                { title: "Get Started", url: "#", icon: BookOpen },
+                { title: "Tutorials", url: "#", icon: BookOpen },
+                { title: "Changelog", url: "#", icon: BookOpen },
+            ],
+        },
+        {
+            title: "Settings",
+            url: "#",
+            icon: Settings2,
+        },
+    ]
+
+    if (loading) {
+        return (
+            <Sidebar collapsible="icon" {...props}>
+                <SidebarHeader>
+                    <Skeleton className="h-10 w-full" />
+                </SidebarHeader>
+                <SidebarContent>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} className="h-8 w-full my-2" />
+                    ))}
+                </SidebarContent>
+                <SidebarFooter>
+                    <Skeleton className="h-10 w-full" />
+                </SidebarFooter>
+            </Sidebar>
+        )
+    }
+
+    if (error) {
+        return (
+            <Sidebar collapsible="icon" {...props}>
+                <SidebarHeader>
+                    <div className="text-red-500">{error}</div>
+                </SidebarHeader>
+            </Sidebar>
+        )
+    }
 
     return (
         <Sidebar collapsible="icon" {...props}>
             <SidebarHeader>
-                <RestaurantSwitcher teams={data.teams} userId={1} />
+                <RestaurantSwitcher
+                    teams={teams}
+                    userId={userId}
+                    setTeams={setTeams} // Pass setTeams to RestaurantSwitcher
+                />
             </SidebarHeader>
             <SidebarContent>
-                <NavMain items={data.navMain} />
+                <NavMain items={navMain} />
             </SidebarContent>
             <SidebarFooter>
-                <NavUser user={data.user} />
+                <NavUser user={user} />
             </SidebarFooter>
             <SidebarRail />
         </Sidebar>
