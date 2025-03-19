@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { fetchTest } from '@/api/test'; // Adjust the import path as necessary
+import { fetchTest } from '@/services/test'; // Adjust the import path as necessary
 
 function Home() {
     const [message, setMessage] = useState('');
