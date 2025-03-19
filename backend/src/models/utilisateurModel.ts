@@ -36,12 +36,12 @@ export const UtilisateurModel = {
             const {data, error} = await supabase
                 .from('utilisateurs')
                 .select('*')
-                //.eq('id_utilisateur', id_utilisateur) à voir avec Cian ce que cette ligne veut dire
+                .eq('id_utilisateur', id_utilisateur) //à voir avec Cian ce que cette ligne veut dire
                 .single();
 
             if (error) throw error;
 
-            if(!data) {
+            if (!data) {
                 throw new Error('Utilisateur not found');
             }
 
@@ -50,6 +50,28 @@ export const UtilisateurModel = {
         } catch (error: any) {
             logger.error('Error fetching Utilisateur by id: ${error.message}');
             throw error;
+        }
+    },
+
+    async getUtilisateursByInterets(id_interet: string) {
+        try {
+            const {data, error} = await supabase
+                .from('interets')
+                .select('*')
+                .eq('id_interet', id_interet)
+                .single();
+
+            if (error) throw error;
+
+            if (!data) {
+                throw new Error('Interêts not found');
+            }
+            logger.success('User fetched');
+            return data;
+        } catch (error: any) {
+            logger.error('Error fetching Utilisateurs by interet');
+            throw error;
+
         }
     }
 }
