@@ -4,18 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-interface Reservation {
-  id: string;
-  restaurantName: string;
-  location: string;
-  date: string;
-  time: string;
-  partySize: number;
-  availableSeats: number;
-  totalSeats: number;
-  status: string;
-}
+import { Reservation, getOpenReservations } from '@/api/reservations';
 
 export default function ReservationsList() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -23,21 +12,19 @@ export default function ReservationsList() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API loading time
-    const timer = setTimeout(() => {
+    const fetchReservations = async () => {
       try {
-        // Use mock data directly instead of fetching
-        const mockReservations = getMockReservations();
-        setReservations(mockReservations);
+        const data = await getOpenReservations();
+        setReservations(data);
         setLoading(false);
       } catch (err) {
         console.error('Error loading reservations:', err);
-        setError('Unable to load reservations. Please try again later.');
+        setError('Impossible de charger les réservations. Veuillez réessayer plus tard.');
         setLoading(false);
       }
-    }, 1000);
+    };
 
-    return () => clearTimeout(timer);
+    fetchReservations();
   }, []);
 
   // Helper function to format dates
@@ -49,63 +36,6 @@ export default function ReservationsList() {
       day: 'numeric' 
     };
     return new Date(dateString).toLocaleDateString('fr-FR', options);
-  };
-
-  // Mock data generator function
-  const getMockReservations = (): Reservation[] => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const dayAfterTomorrow = new Date(now);
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
-    
-    return [
-      {
-        id: '1',
-        restaurantName: 'Le Bistrot Parisien',
-        location: 'Paris, 9ème arrondissement',
-        date: tomorrow.toISOString().split('T')[0],
-        time: '19:30',
-        partySize: 2,
-        availableSeats: 4,
-        totalSeats: 6,
-        status: 'open'
-      },
-      {
-        id: '2',
-        restaurantName: 'Chez Michel',
-        location: 'Lyon, Centre-ville',
-        date: tomorrow.toISOString().split('T')[0],
-        time: '20:00',
-        partySize: 2,
-        availableSeats: 2,
-        totalSeats: 4,
-        status: 'open'
-      },
-      {
-        id: '3',
-        restaurantName: 'La Trattoria',
-        location: 'Marseille, Vieux Port',
-        date: dayAfterTomorrow.toISOString().split('T')[0],
-        time: '12:30',
-        partySize: 3,
-        availableSeats: 3,
-        totalSeats: 6,
-        status: 'open'
-      },
-      {
-        id: '4',
-        restaurantName: 'Le Gourmet',
-        location: 'Bordeaux, Centre',
-        date: dayAfterTomorrow.toISOString().split('T')[0],
-        time: '19:00',
-        partySize: 1,
-        availableSeats: 3,
-        totalSeats: 4,
-        status: 'open'
-      }
-    ];
   };
 
   if (loading) {
