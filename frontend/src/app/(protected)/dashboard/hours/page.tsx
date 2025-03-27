@@ -243,7 +243,7 @@ export default function HoursPage() {
     };
 
     return (
-        <DashboardLayout restaurants={restaurants} userId={userId}>
+        <DashboardLayout restaurants={restaurants.map(r => ({ ...r, plan: 'default' }))} userId={userId}>
             <div className="flex flex-col gap-6">
                 <div className="flex justify-between items-center">
                     <h1 className="text-3xl font-bold">Opening Hours</h1>

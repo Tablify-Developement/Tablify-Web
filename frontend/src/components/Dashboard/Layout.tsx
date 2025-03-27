@@ -1,219 +1,253 @@
-// src/components/Dashboard/Layout.tsx
 "use client"
 
-import { ReactNode, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import Link from 'next/link';
+import * as React from "react"
 import {
-    LayoutDashboard,
-    CalendarClock,
-    Settings,
-    PanelLeft,
+    AudioWaveform,
+    Command,
     GalleryVerticalEnd,
-    Users,
-    Clock,
-    Utensils,
-    PlusCircle,
-    ChevronDown
+    Map,
+    PieChart,
+    Settings2,
+    LucideIcon,
+    Plus
 } from "lucide-react"
+
+import { NavUser } from "@/components/Dashboard/NavUser"
 import {
     Sidebar,
     SidebarContent,
+    SidebarFooter,
     SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarMenuSub,
-    SidebarMenuSubButton,
-    SidebarMenuSubItem,
-    SidebarProvider,
-    SidebarTrigger,
     SidebarInset,
-    SidebarSeparator,
+    SidebarProvider,
+    SidebarRail,
+    SidebarMenu,
+    SidebarMenuItem,
+    SidebarMenuButton,
     SidebarGroup,
-    SidebarGroupLabel,
+    SidebarGroupLabel
 } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { ModeToggle } from "@/components/ui/ThemeButton"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
 import { CreateRestaurantModal } from "@/components/CreateRestaurant/CreateRestaurantModal"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import {ReactNode} from "react";
+
+interface User {
+    name: string
+    email: string
+    avatar: string
+}
+
+interface Team {
+    id: number
+    name: string
+    logo: React.ElementType<any>
+    plan: string
+}
+
+interface Restaurant {
+    id: number;
+    name: string;
+    logo: React.ElementType<any>;
+    plan: string;
+}
+
+interface NavItem {
+    title: string
+    url: string
+    icon: LucideIcon
+}
 
 interface DashboardLayoutProps {
-    children: ReactNode;
-    restaurants: { id: number; name: string; logo: React.ElementType }[];
+    children: ReactNode; // Allow child components inside the layout
+    restaurants: Restaurant[];
     userId: number;
 }
 
-export default function DashboardLayout({ children, restaurants, userId }: DashboardLayoutProps) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const [openCreateModal, setOpenCreateModal] = useState(false);
-    const [selectedRestaurant, setSelectedRestaurant] = useState(
-        restaurants.length > 0 ? restaurants[0] : null
-    );
 
-    const isActive = (path: string) => {
-        return pathname === path || pathname?.startsWith(path + '/');
-    };
+export default function DashboardLayout({ children, restaurants = [], userId }: DashboardLayoutProps) {
+    const [teams, setTeams] = React.useState<Team[]>(restaurants)
+    const [activeTeam, setActiveTeam] = React.useState<Team | null>(restaurants[0] || null)
+    const [isModalOpen, setIsModalOpen] = React.useState(false)
+    const pathname = usePathname()
+    const [selectedRestaurantId, setSelectedRestaurantId] = React.useState<number | null>(
+        restaurants.length > 0 ? restaurants[0].id : null
+    )
 
-    const handleRestaurantCreated = (newRestaurant: any) => {
-        // Here we would typically refresh the restaurants list
-        // For now, we'll just select the new restaurant
-        setSelectedRestaurant(newRestaurant);
-    };
+    // When restaurants data changes, update teams and ensure activeTeam is set
+    React.useEffect(() => {
+        setTeams(restaurants)
+        // If we have restaurants but no active team, set the first one
+        if (restaurants.length > 0 && !activeTeam) {
+            setActiveTeam(restaurants[0])
+            setSelectedRestaurantId(restaurants[0].id)
+        }
+    }, [restaurants])
+
+    const user: User = {
+        name: "User",
+        email: "user@example.com",
+        avatar: "https://github.com/shadcn.png",
+    }
+
+    const navItems: NavItem[] = [
+        {
+            title: "Dashboard",
+            url: "/dashboard",
+            icon: PieChart,
+        },
+        {
+            title: "Tables",
+            url: "/dashboard/tables",
+            icon: Map,
+        },
+        {
+            title: "Reservations",
+            url: "/dashboard/reservations",
+            icon: Command,
+        },
+        {
+            title: "Hours",
+            url: "/dashboard/hours",
+            icon: AudioWaveform,
+        },
+        {
+            title: "Settings",
+            url: "/dashboard/settings",
+            icon: Settings2,
+        },
+    ]
+
+    // Storing the current restaurant ID in session storage to persist across page refreshes
+    React.useEffect(() => {
+        // When the component mounts, check if we have a stored restaurant ID
+        const storedRestaurantId = sessionStorage.getItem('selectedRestaurantId')
+        if (storedRestaurantId && restaurants.length > 0) {
+            const id = parseInt(storedRestaurantId, 10)
+            const foundTeam = restaurants.find(r => r.id === id)
+            if (foundTeam) {
+                setActiveTeam(foundTeam)
+                setSelectedRestaurantId(id)
+            }
+        }
+    }, [])
+
+    // Update session storage when selected restaurant changes
+    React.useEffect(() => {
+        if (selectedRestaurantId) {
+            sessionStorage.setItem('selectedRestaurantId', selectedRestaurantId.toString())
+        }
+    }, [selectedRestaurantId])
+
+    // Handle restaurant selection
+    const handleRestaurantSelect = (team: Team) => {
+        setActiveTeam(team)
+        setSelectedRestaurantId(team.id)
+        // Force refresh the page to update data
+        window.location.reload()
+    }
+
+    // Handle team creation
+    const handleTeamCreated = (newTeam: Team) => {
+        setTeams(prevTeams => [...prevTeams, newTeam])
+        setActiveTeam(newTeam)
+        setSelectedRestaurantId(newTeam.id)
+
+        // Force a page refresh after a short delay to allow state to update
+        setTimeout(() => {
+            window.location.reload()
+        }, 500)
+    }
 
     return (
-        <SidebarProvider>
-            <div className="flex min-h-screen">
-                <Sidebar variant="sidebar" collapsible="icon">
-                    <SidebarHeader className="flex flex-col p-2">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                                <GalleryVerticalEnd className="h-6 w-6" />
-                                <span className="text-lg font-semibold">Tablify</span>
-                            </div>
-                            <SidebarTrigger />
-                        </div>
-
-                        <div className="flex justify-between items-center mb-2">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="flex items-center justify-between w-full">
-                                        <div className="flex items-center">
-                                            {selectedRestaurant ? (
-                                                <>
-                                                    <Avatar className="h-6 w-6 mr-2">
-                                                        <AvatarFallback>
-                                                            {selectedRestaurant.name.substring(0, 2).toUpperCase()}
-                                                        </AvatarFallback>
-                                                    </Avatar>
-                                                    <span className="truncate max-w-[120px]">{selectedRestaurant.name}</span>
-                                                </>
-                                            ) : (
-                                                <span>Select Restaurant</span>
-                                            )}
-                                        </div>
-                                        <ChevronDown className="h-4 w-4 opacity-50" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent className="w-60">
-                                    <DropdownMenuLabel>Your Restaurants</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    {restaurants.map((restaurant) => (
-                                        <DropdownMenuItem
-                                            key={restaurant.id}
-                                            onClick={() => setSelectedRestaurant(restaurant)}
-                                            className={selectedRestaurant?.id === restaurant.id ? "bg-accent" : ""}
-                                        >
-                                            <Avatar className="h-6 w-6 mr-2">
-                                                <AvatarFallback>
-                                                    {restaurant.name.substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            {restaurant.name}
-                                        </DropdownMenuItem>
-                                    ))}
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => setOpenCreateModal(true)}>
-                                        <PlusCircle className="h-4 w-4 mr-2" />
-                                        Add New Restaurant
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+        <SidebarProvider defaultOpen>
+            <div className="grid h-svh grid-cols-1 md:grid-cols-[auto_1fr]">
+                <Sidebar>
+                    <SidebarHeader className="pt-6">
+                        <div className="flex items-center justify-between px-2 mb-2">
+                            <h1 className="text-lg font-semibold truncate">Restaurants</h1>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setIsModalOpen(true)}
+                                className="h-7 w-7"
+                            >
+                                <Plus className="h-4 w-4" />
+                                <span className="sr-only">Add Restaurant</span>
+                            </Button>
                         </div>
                     </SidebarHeader>
-
                     <SidebarContent>
-                        <SidebarMenu>
-                            <SidebarMenuItem>
-                                <Link href="/dashboard" passHref legacyBehavior>
-                                    <SidebarMenuButton
-                                        tooltip="Overview"
-                                        isActive={isActive('/dashboard')}
-                                    >
-                                        <LayoutDashboard />
-                                        <span>Overview</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
+                        {/* Restaurant Selection */}
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Your Restaurants</SidebarGroupLabel>
+                            <SidebarMenu>
+                                {teams.map((team) => (
+                                    <SidebarMenuItem key={team.id}>
+                                        <SidebarMenuButton
+                                            onClick={() => handleRestaurantSelect(team)}
+                                            data-active={activeTeam?.id === team.id}
+                                        >
+                                            <div className="flex aspect-square size-4 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                                                <team.logo className="size-3" />
+                                            </div>
+                                            <span>{team.name}</span>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                                {teams.length === 0 && (
+                                    <div className="px-2 py-1 text-sm text-muted-foreground">
+                                        No restaurants yet
+                                    </div>
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroup>
 
-                            <SidebarMenuItem>
-                                <Link href="/dashboard/tables" passHref legacyBehavior>
-                                    <SidebarMenuButton
-                                        tooltip="Tables"
-                                        isActive={isActive('/dashboard/tables')}
-                                    >
-                                        <Utensils />
-                                        <span>Tables</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
-
-                            <SidebarMenuItem>
-                                <Link href="/dashboard/hours" passHref legacyBehavior>
-                                    <SidebarMenuButton
-                                        tooltip="Opening Hours"
-                                        isActive={isActive('/dashboard/hours')}
-                                    >
-                                        <Clock />
-                                        <span>Opening Hours</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
-
-                            <SidebarMenuItem>
-                                <Link href="/dashboard/settings" passHref legacyBehavior>
-                                    <SidebarMenuButton
-                                        tooltip="Settings"
-                                        isActive={isActive('/dashboard/settings')}
-                                    >
-                                        <Settings />
-                                        <span>Settings</span>
-                                    </SidebarMenuButton>
-                                </Link>
-                            </SidebarMenuItem>
-
-                            {/* User Management removed as requested */}
-                        </SidebarMenu>
+                        {/* Navigation */}
+                        <SidebarGroup>
+                            <SidebarGroupLabel>Management</SidebarGroupLabel>
+                            <SidebarMenu>
+                                {navItems.map((item) => (
+                                    <SidebarMenuItem key={item.url}>
+                                        <Link href={item.url} passHref legacyBehavior>
+                                            <SidebarMenuButton asChild data-active={pathname === item.url}>
+                                                <a>
+                                                    <item.icon />
+                                                    <span>{item.title}</span>
+                                                </a>
+                                            </SidebarMenuButton>
+                                        </Link>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroup>
                     </SidebarContent>
+                    <SidebarFooter>
+                        <NavUser user={user} />
+                    </SidebarFooter>
+                    <SidebarRail />
                 </Sidebar>
-
                 <SidebarInset>
-                    <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
-                        <div className="flex items-center gap-2">
-                            <SidebarTrigger className="-ml-1" />
-                            <Separator orientation="vertical" className="h-6" />
-                            <div className="font-semibold">
-                                {selectedRestaurant ? selectedRestaurant.name : "No Restaurant Selected"}
-                            </div>
-                        </div>
-                        <div className="ml-auto flex items-center gap-2">
-                            <ModeToggle />
-                        </div>
-                    </header>
-
-                    <main className="flex-1 p-4 overflow-auto">
+                    <main className="container mx-auto py-6">
                         {children}
                     </main>
                 </SidebarInset>
             </div>
 
-            {/* Create Restaurant Modal */}
+            {/* Restaurant Creation Modal */}
             <CreateRestaurantModal
                 userId={userId}
-                open={openCreateModal}
-                onOpenChange={setOpenCreateModal}
-                onSuccess={handleRestaurantCreated}
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+                onSuccess={(newTeam) => {
+                    handleTeamCreated(newTeam);
+                    console.log("Restaurant created successfully!");
+                }}
+                onError={(error: any) => {
+                    console.error("Error creating restaurant:", error);
+                }}
             />
         </SidebarProvider>
-    );
+    )
 }

@@ -17,23 +17,24 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from "@/components/ui/sidebar"
-import {CreateRestaurantModal} from "@/components/CreateRestaurant/CreateRestaurantModal"
+import { CreateRestaurantModal } from "@/components/CreateRestaurant/CreateRestaurantModal"
 
+// Define the Team interface to match what we need for the RestaurantSwitcher
 interface Team {
-    id: number // Ensure id is included
-    name: string
-    logo: React.ElementType<any> // Ensure logo is included
-    plan: string // Ensure plan is included
+    id: number;
+    name: string;
+    logo: React.ElementType<any>;
+    plan: string;
 }
 
-export function RestaurantSwitcher({
-                                       teams,
-                                       userId,
-                                       setTeams, // Add setTeams as a prop
-                                   }: {
-    teams: Team[] // Use the Team interface
-    userId: number
-    setTeams: React.Dispatch<React.SetStateAction<Team[]>> // Use the Team interface
+export function EnhancedRestaurantSwitcher({
+                                               teams,
+                                               userId,
+                                               setTeams,
+                                           }: {
+    teams: Team[];
+    userId: number;
+    setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
 }) {
     const { isMobile } = useSidebar()
     const [activeTeam, setActiveTeam] = React.useState(teams[0] || { id: 0, name: "", logo: GalleryVerticalEnd, plan: "" })
@@ -62,11 +63,11 @@ export function RestaurantSwitcher({
                             </div>
                             <div className="grid flex-1 text-left text-sm leading-tight">
                                 <span className="truncate font-semibold">
-                                    {activeTeam.name}
+                                    {activeTeam.name || "Select Restaurant"}
                                 </span>
-                                <span className="truncate text-xs">{activeTeam.plan}</span>
+                                <span className="truncate text-xs">{activeTeam.plan || "Create your first restaurant"}</span>
                             </div>
-                            <ChevronsUpDown className="ml-auto" />
+                            <ChevronsUpDown className="ml-auto size-4" />
                         </SidebarMenuButton>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
@@ -76,11 +77,11 @@ export function RestaurantSwitcher({
                         sideOffset={4}
                     >
                         <DropdownMenuLabel className="text-xs text-muted-foreground">
-                            Teams
+                            Restaurants
                         </DropdownMenuLabel>
                         {teams.map((team, index) => (
                             <DropdownMenuItem
-                                key={`team-${team.id}`} // Enhanced key with prefix to ensure uniqueness
+                                key={`team-${team.id}`}
                                 onClick={() => setActiveTeam(team)}
                                 className="gap-2 p-2"
                             >
@@ -93,9 +94,9 @@ export function RestaurantSwitcher({
                         ))}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                            key="create-restaurant" // Added key for this item
+                            key="create-restaurant"
                             className="gap-2 p-2"
-                            onClick={() => setIsModalOpen(true)} // Open modal on click
+                            onClick={() => setIsModalOpen(true)}
                         >
                             <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                                 <Plus className="size-4" />
@@ -106,7 +107,7 @@ export function RestaurantSwitcher({
                 </DropdownMenu>
             </SidebarMenuItem>
 
-            {/* The modal component */}
+            {/* The CreateRestaurantModal component */}
             <CreateRestaurantModal
                 userId={userId}
                 open={isModalOpen}
