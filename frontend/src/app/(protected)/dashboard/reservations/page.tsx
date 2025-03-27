@@ -1,11 +1,11 @@
 'use client';
 import DashboardLayout from '@/components/Dashboard/layout';
-import OpeningHoursPage from '@/components/Dashboard/hours';
+import ReservationsPage from '@/components/Dashboard/reservations';
 
-export default function HoursPage() {
+export default function ReservationsRoute() {
     return (
         <DashboardLayout>
-            <OpeningHoursPage />
+            <ReservationsPage />
         </DashboardLayout>
     );
 }
