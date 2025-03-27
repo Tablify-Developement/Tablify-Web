@@ -23,7 +23,7 @@ export const fetchUsers = async () => {
         const response = await axios.get(API_URL_FETCH);
         console.log("Raw API response:", response.data);
 
-        return response.data.map((user: any) => ({
+        return response.data.map((user: { prenom: string; nom: string; role: string; langue: string; }) => ({
             name: `${user.prenom} ${user.nom}`,
             logo: User,
             role: user.role,

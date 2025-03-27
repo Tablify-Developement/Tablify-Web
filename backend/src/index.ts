@@ -19,6 +19,7 @@ app.use(express.json());
 
 // Routes
 app.use('/services', testRoutes);
+app.use('/api', testRoutes);
 
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {

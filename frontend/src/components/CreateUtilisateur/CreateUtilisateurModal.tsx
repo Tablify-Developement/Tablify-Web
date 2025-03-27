@@ -26,11 +26,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { useForm, ControllerRenderProps } from "react-hook-form"
+import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { createUser } from '@/services/userService'
-import { Loader2, User } from "lucide-react"
+import { createUser } from '@/services/utilisateurService'
+import { Loader2 } from "lucide-react"
 
 // Form validation schema
 const formSchema = z.object({
@@ -47,7 +47,7 @@ type FormValues = z.infer<typeof formSchema>;
 interface CreateUserModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSuccess?: (newUser: any) => void;
+    onSuccess?: (newUser: string) => void;
     onError?: (error: unknown) => void;
 }
 
