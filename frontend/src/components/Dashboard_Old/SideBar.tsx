@@ -15,9 +15,9 @@ import {
     LucideIcon,
 } from "lucide-react"
 
-import { NavMain } from "@/components/Dashboard/NavMain"
-import { NavUser } from "@/components/Dashboard/NavUser"
-import { RestaurantSwitcher } from "@/components/Dashboard/RestaurantSwitcher"
+import { NavMain } from "@/components/Dashboard_Old/NavMain"
+import { NavUser } from "@/components/Dashboard_Old/NavUser"
+import { RestaurantSwitcher } from "@/components/Dashboard_Old/RestaurantSwitcher"
 import {
     Sidebar,
     SidebarContent,
