@@ -10,7 +10,8 @@ import {
     CalendarClock,
     Settings,
     Home,
-    GalleryVerticalEnd
+    GalleryVerticalEnd,
+    Loader2
 } from "lucide-react";
 
 import { ModeToggle } from "@/components/ui/ThemeButton";
@@ -78,9 +79,16 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                                         <Button variant="outline" className="w-full justify-start text-left">
                                             {selectedRestaurant ? (
                                                 <>
-                                                    {selectedRestaurant.logo && <selectedRestaurant.logo className="mr-2 h-4 w-4" />}
-                                                    {selectedRestaurant.name}
+                                                    {selectedRestaurant.logo && (
+                                                        <selectedRestaurant.logo className="mr-2 h-4 w-4" />
+                                                    )}
+                                                    <span className="truncate">{selectedRestaurant.name}</span>
                                                 </>
+                                            ) : isLoading ? (
+                                                <span className="flex items-center">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Loading...
+                        </span>
                                             ) : (
                                                 "Select Restaurant"
                                             )}
@@ -200,15 +208,31 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                                 </div>
                                 {children}
                             </>
+                        ) : isLoading ? (
+                            <div className="flex justify-center p-8">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                            </div>
+                        ) : restaurants.length === 0 ? (
+                            <div className="flex h-full items-center justify-center">
+                                <div className="text-center">
+                                    <h2 className="text-xl font-semibold mb-4">No Restaurants Found</h2>
+                                    <p className="mb-6 text-muted-foreground">
+                                        You haven't created any restaurants yet. Create your first restaurant to get started.
+                                    </p>
+                                    <Button onClick={() => setModalOpen(true)}>
+                                        Create Restaurant
+                                    </Button>
+                                </div>
+                            </div>
                         ) : (
                             <div className="flex h-full items-center justify-center">
                                 <div className="text-center">
                                     <h2 className="text-xl font-semibold mb-4">No Restaurant Selected</h2>
                                     <p className="mb-6 text-muted-foreground">
-                                        Please select a restaurant or create a new one to continue.
+                                        Please select a restaurant from the dropdown to continue.
                                     </p>
-                                    <Button onClick={() => setModalOpen(true)}>
-                                        Create Restaurant
+                                    <Button variant="outline" onClick={() => {}}>
+                                        Choose a Restaurant
                                     </Button>
                                 </div>
                             </div>

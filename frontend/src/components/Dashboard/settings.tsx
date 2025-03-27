@@ -34,9 +34,11 @@ import {
     MapPin,
     FileText,
     CreditCard,
-    Loader2
+    Loader2,
+    Settings
 } from 'lucide-react';
 import { fetchRestaurantSettings, updateRestaurantSettings } from '@/services/restaurantService';
+import { useRestaurant } from '@/context/restaurant-context';
 
 // Define the type for restaurant settings
 interface RestaurantSettings {
@@ -64,6 +66,9 @@ const CURRENCIES = [
 ];
 
 export default function SettingsPage() {
+    const { selectedRestaurant } = useRestaurant();
+    const restaurantId = selectedRestaurant?.id || 0;
+
     const [settings, setSettings] = useState<RestaurantSettings>({
         restaurant_name: '',
         restaurant_type: '',
@@ -78,24 +83,48 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    // Using a hardcoded restaurant ID for now
-    // In a real app, this would come from context or URL params
-    const restaurantId = 1;
-
     useEffect(() => {
         const loadSettings = async () => {
+            if (!restaurantId) {
+                // Reset settings when no restaurant is selected
+                setSettings({
+                    restaurant_name: '',
+                    restaurant_type: '',
+                    address: '',
+                    contact: '',
+                    description: '',
+                    currency: 'USD',
+                    tax_rate: '0.0'
+                });
+                setIsLoading(false);
+                return;
+            }
+
             setIsLoading(true);
+            setMessage({ type: '', text: '' });
+
             try {
                 const data = await fetchRestaurantSettings(restaurantId);
                 if (data) {
                     setSettings({
-                        restaurant_name: data.restaurant_name || '',
-                        restaurant_type: data.restaurant_type || '',
+                        restaurant_name: data.restaurant_name || selectedRestaurant?.name || '',
+                        restaurant_type: data.restaurant_type || selectedRestaurant?.plan || '',
                         address: data.address || '',
                         contact: data.contact || '',
                         description: data.description || '',
                         currency: data.currency || 'USD',
                         tax_rate: data.tax_rate || '0.0'
+                    });
+                } else {
+                    // If no settings are found, use the basic restaurant info from context
+                    setSettings({
+                        restaurant_name: selectedRestaurant?.name || '',
+                        restaurant_type: selectedRestaurant?.plan || '',
+                        address: '',
+                        contact: '',
+                        description: '',
+                        currency: 'USD',
+                        tax_rate: '0.0'
                     });
                 }
             } catch (error) {
@@ -104,13 +133,24 @@ export default function SettingsPage() {
                     type: 'error',
                     text: 'Failed to load restaurant settings. Please try again.'
                 });
+
+                // Still use the basic restaurant info from context if API fails
+                setSettings({
+                    restaurant_name: selectedRestaurant?.name || '',
+                    restaurant_type: selectedRestaurant?.plan || '',
+                    address: '',
+                    contact: '',
+                    description: '',
+                    currency: 'USD',
+                    tax_rate: '0.0'
+                });
             } finally {
                 setIsLoading(false);
             }
         };
 
         loadSettings();
-    }, [restaurantId]);
+    }, [restaurantId, selectedRestaurant]);
 
     const handleChange = (field: keyof RestaurantSettings, value: string) => {
         setSettings(prev => ({
@@ -120,6 +160,14 @@ export default function SettingsPage() {
     };
 
     const handleSave = async () => {
+        if (!restaurantId) {
+            setMessage({
+                type: 'error',
+                text: 'No restaurant selected. Please select a restaurant first.'
+            });
+            return;
+        }
+
         setIsSaving(true);
         setMessage({ type: '', text: '' });
 
@@ -180,7 +228,7 @@ export default function SettingsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Restaurant Settings</h2>
-                <Button onClick={handleSave} disabled={isSaving}>
+                <Button onClick={handleSave} disabled={isSaving || !restaurantId}>
                     {isSaving ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -203,7 +251,17 @@ export default function SettingsPage() {
                 </div>
             )}
 
-            {isLoading ? (
+            {!restaurantId ? (
+                <div className="text-center py-12 bg-card border rounded-lg shadow-sm">
+                    <div className="mx-auto w-16 h-16 mb-4 rounded-full bg-muted flex items-center justify-center">
+                        <Settings className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-medium mb-2">No Restaurant Selected</h3>
+                    <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                        Please select a restaurant from the sidebar dropdown to view and manage its settings.
+                    </p>
+                </div>
+            ) : isLoading ? (
                 <div className="flex justify-center p-8">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 </div>
