@@ -1,3 +1,4 @@
+// File: src/components/Auth/Login.tsx
 'use client';
 
 import { useState } from 'react';
@@ -25,6 +26,7 @@ import {
     CardTitle
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 
 // Login validation schema
 const loginSchema = z.object({
@@ -36,6 +38,7 @@ export default function LoginPage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const { login } = useAuth();
 
     // Form setup
     const form = useForm<z.infer<typeof loginSchema>>({
@@ -55,13 +58,10 @@ export default function LoginPage() {
             // Call login service
             const response = await loginUser(values);
 
-            // Store authentication token
-            if (response.token) {
-                localStorage.setItem('authToken', response.token);
-                localStorage.setItem('user', JSON.stringify(response.user));
-            }
+            // Store auth data via context
+            login(response.user, response.token);
 
-            // Redirect to dashboard or home page
+            // Redirect to dashboard
             router.push('/dashboard');
         } catch (error: any) {
             // Handle login error

@@ -90,9 +90,11 @@ export const UtilisateurController = {
             }
 
             // Generate JWT token
+            // NOTE: Make sure we use both id and id_utilisateur for compatibility
             const token = jwt.sign(
                 {
                     id: user.id_utilisateur,
+                    id_utilisateur: user.id_utilisateur, // Include both for compatibility
                     email: user.mail,
                     role: user.role
                 },

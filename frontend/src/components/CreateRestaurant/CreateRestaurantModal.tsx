@@ -32,6 +32,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { createRestaurant } from '@/services/restaurantService'
 import { Loader2, GalleryVerticalEnd } from "lucide-react"
+import { useAuth } from '@/context/auth-context'
 
 // Form validation schema
 const formSchema = z.object({
@@ -53,7 +54,6 @@ interface Team {
 }
 
 interface CreateRestaurantModalProps {
-    userId: number;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess?: (newTeam: Team) => void;
@@ -61,7 +61,6 @@ interface CreateRestaurantModalProps {
 }
 
 export function CreateRestaurantModal({
-                                          userId,
                                           open,
                                           onOpenChange,
                                           onSuccess,
@@ -69,6 +68,7 @@ export function CreateRestaurantModal({
                                       }: CreateRestaurantModalProps) {
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const { user } = useAuth();
 
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
@@ -85,9 +85,15 @@ export function CreateRestaurantModal({
         setIsSubmitting(true);
         setError(null);
 
+        if (!user || !user.id) {
+            setError("User not authenticated. Please log in again.");
+            setIsSubmitting(false);
+            return;
+        }
+
         try {
             const response = await createRestaurant({
-                user_id: userId,
+                user_id: user.id,
                 restaurant_name: values.restaurant_name,
                 restaurant_type: values.restaurant_type,
                 address: values.address,
@@ -162,7 +168,8 @@ export function CreateRestaurantModal({
                                     <FormLabel>Restaurant Type</FormLabel>
                                     <Select
                                         onValueChange={field.onChange}
-                                        defaultValue={field.value}
+                                        value={field.value || undefined}
+                                        defaultValue={undefined}
                                     >
                                         <FormControl>
                                             <SelectTrigger>

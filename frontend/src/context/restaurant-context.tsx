@@ -1,7 +1,9 @@
+// File: src/context/restaurant-context.tsx
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { fetchRestaurantsByUserId } from '@/services/restaurantService';
+import { useAuth } from '@/context/auth-context';
 
 // Define the Restaurant interface
 export interface Restaurant {
@@ -17,7 +19,6 @@ interface RestaurantContextType {
     selectedRestaurant: Restaurant | null;
     setSelectedRestaurant: (restaurant: Restaurant) => void;
     isLoading: boolean;
-    userId: number;
     refreshRestaurants: () => Promise<void>;
     addRestaurant: (restaurant: Restaurant) => void;
 }
@@ -28,7 +29,6 @@ const RestaurantContext = createContext<RestaurantContextType>({
     selectedRestaurant: null,
     setSelectedRestaurant: () => {},
     isLoading: true,
-    userId: 2, // Default user ID
     refreshRestaurants: async () => {},
     addRestaurant: () => {}
 });
@@ -38,7 +38,7 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const userId = 2; // Hardcoded user ID as required
+    const { user } = useAuth();
 
     // Function to set the selected restaurant and save to localStorage
     const handleSelectRestaurant = (restaurant: Restaurant) => {
@@ -50,7 +50,22 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
     const loadRestaurants = async () => {
         setIsLoading(true);
         try {
-            const data = await fetchRestaurantsByUserId(userId);
+            console.log("Current user:", user);
+
+            // Check if we have a user with an ID
+            if (!user || !user.id) {
+                console.log("No authenticated user ID available");
+                setRestaurants([]);
+                setSelectedRestaurant(null);
+                localStorage.removeItem('selectedRestaurant');
+                setIsLoading(false);
+                return;
+            }
+
+            // Use the authenticated user's ID (as a string, no conversion to number)
+            console.log("Loading restaurants for user ID:", user.id);
+            const data = await fetchRestaurantsByUserId(user.id);
+            console.log("Restaurants loaded:", data);
             setRestaurants(data);
 
             // Try to get the selected restaurant from localStorage
@@ -71,24 +86,34 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
                     if (data.length > 0) {
                         setSelectedRestaurant(data[0]);
                         localStorage.setItem('selectedRestaurant', JSON.stringify(data[0]));
+                    } else {
+                        // If no restaurants at all, clear the selection
+                        setSelectedRestaurant(null);
+                        localStorage.removeItem('selectedRestaurant');
                     }
                 }
             } else if (data.length > 0 && !selectedRestaurant) {
                 // No saved restaurant, select the first one
                 setSelectedRestaurant(data[0]);
                 localStorage.setItem('selectedRestaurant', JSON.stringify(data[0]));
+            } else if (data.length === 0) {
+                // No restaurants for this user
+                setSelectedRestaurant(null);
+                localStorage.removeItem('selectedRestaurant');
             }
         } catch (error) {
             console.error("Error loading restaurants:", error);
+            setRestaurants([]);
+            setSelectedRestaurant(null);
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Load restaurants on initial mount
+    // Load restaurants on initial mount and when user changes
     useEffect(() => {
         loadRestaurants();
-    }, []);
+    }, [user]);
 
     // Create a function to handle adding a new restaurant
     const addRestaurant = (newRestaurant: Restaurant) => {
@@ -103,7 +128,6 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
                 selectedRestaurant,
                 setSelectedRestaurant: handleSelectRestaurant,
                 isLoading,
-                userId,
                 refreshRestaurants: loadRestaurants,
                 addRestaurant
             }}

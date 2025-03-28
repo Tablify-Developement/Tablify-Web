@@ -5,11 +5,20 @@ import { logger } from '../utils/logger';
 // Restaurant model
 export const RestaurantModel = {
     // Restaurant CRUD operations
-    async createRestaurant(user_id: number, restaurant_name: string, restaurant_type: string, address: string, contact: string, description: string) {
+    // Also update this method
+    async createRestaurant(user_id: string | number, restaurant_name: string, restaurant_type: string, address: string, contact: string, description: string) {
         try {
             const { data, error } = await supabase
                 .from('restaurants')
-                .insert([{ user_id, restaurant_name, restaurant_type, address, contact, description, verification: 'pending' }])
+                .insert([{
+                    user_id,
+                    restaurant_name,
+                    restaurant_type,
+                    address,
+                    contact,
+                    description,
+                    verification: 'pending'
+                }])
                 .select();
 
             if (error) throw error;
@@ -107,12 +116,14 @@ export const RestaurantModel = {
     },
 
     // Get restaurants by user ID
-    async getRestaurantsByUserId(user_id: number) {
+    async getRestaurantsByUserId(user_id: string) {
         try {
+            console.log("Model fetching restaurants for user ID:", user_id);
+
             const { data, error } = await supabase
                 .from('restaurants')
                 .select('*')
-                .eq('user_id', user_id); // Filter by user_id
+                .eq('user_id', user_id); // Use the UUID directly
 
             if (error) throw error;
 
