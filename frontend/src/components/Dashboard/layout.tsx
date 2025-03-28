@@ -53,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 function DashboardContent({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [modalOpen, setModalOpen] = useState(false);
-    const { restaurants, selectedRestaurant, setSelectedRestaurant, isLoading, userId, addRestaurant } = useRestaurant();
+    const { restaurants, selectedRestaurant, setSelectedRestaurant, isLoading, addRestaurant } = useRestaurant();
 
     const handleRestaurantCreate = (newRestaurant: any) => {
         addRestaurant(newRestaurant);
@@ -200,12 +200,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
                     <main className="flex-1 overflow-y-auto p-6">
                         {selectedRestaurant ? (
                             <>
-                                <div className="mb-6">
-                                    <h1 className="text-2xl font-bold">{selectedRestaurant.name}</h1>
-                                    <p className="text-sm text-muted-foreground">
-                                        {selectedRestaurant.plan} Plan
-                                    </p>
-                                </div>
+                                {/* Supprimez ce bloc */}
+                                {/* <div className="mb-6">
+                                        <h1 className="text-2xl font-bold">{selectedRestaurant.name}</h1>
+                                        <p className="text-sm text-muted-foreground">
+                                            {selectedRestaurant.plan} Plan
+                                        </p>
+                                    </div> */}
                                 {children}
                             </>
                         ) : isLoading ? (
@@ -242,7 +243,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
             </div>
 
             <CreateRestaurantModal
-                userId={userId}
                 open={modalOpen}
                 onOpenChange={setModalOpen}
                 onSuccess={handleRestaurantCreate}

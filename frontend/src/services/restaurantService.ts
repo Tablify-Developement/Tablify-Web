@@ -1,4 +1,4 @@
-// src/services/restaurantService.ts
+// File: src/services/restaurantService.ts
 import axios from 'axios';
 import {GalleryVerticalEnd} from "lucide-react";
 
@@ -52,7 +52,7 @@ interface HoursData {
 
 // Create a new restaurant
 export const createRestaurant = async (data: {
-    user_id: number;
+    user_id: string | number;
     restaurant_name: string;
     restaurant_type: string;
     address: string;
@@ -69,18 +69,22 @@ export const createRestaurant = async (data: {
 };
 
 // Fetch restaurants by user ID
-export const fetchRestaurantsByUserId = async (user_id: number) => {
+export const fetchRestaurantsByUserId = async (userId: string | number) => {
     try {
-        const response = await axios.get(`${API_BASE_URL}/restaurants/user/${user_id}`);
+        console.log("Fetching restaurants for user ID:", userId);
+
+        // Make sure we have a valid user ID
+        if (!userId) {
+            console.warn("No user ID provided to fetchRestaurantsByUserId");
+            return [];
+        }
+
+        // Use the user ID directly in the request (as a string)
+        const response = await axios.get(`${API_BASE_URL}/restaurants/user/${userId}`);
         console.log("Raw API response:", response.data);
 
-        const filteredData = response.data.filter((restaurant: any) =>
-            restaurant.user_id === user_id
-        );
-
-        console.log("Filtered by user_id on client:", filteredData);
-
-        return filteredData.map((restaurant: any) => ({
+        // Transform the data for UI usage
+        return response.data.map((restaurant: any) => ({
             id: restaurant.id,
             name: restaurant.restaurant_name,
             logo: GalleryVerticalEnd,
