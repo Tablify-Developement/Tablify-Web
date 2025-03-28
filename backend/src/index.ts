@@ -3,6 +3,8 @@ import cors from 'cors'; // Import cors
 import { logger } from './utils/logger';
 import dotenv from 'dotenv';
 import testRoutes from './routes/test';
+import restaurantRoutes from './routes/restaurantRoutes';
+
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +22,8 @@ app.use(express.json());
 // Routes
 app.use('/services', testRoutes);
 app.use('/api', testRoutes);
+
+app.use('/api/restaurants', restaurantRoutes);
 
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {
