@@ -1,19 +1,62 @@
-import {supabase} from '../config/supabase';
-import {logger} from '../utils/logger';
+import { supabase } from '../config/supabase';
+import { logger } from '../utils/logger';
 
 // Utilisateurs model
 export const UtilisateurModel = {
-    async createUtilisateur(id_utilisateur: string, nom: string, prenom: string, mail: string, role: string, notification: boolean, langue: string, date_naissance: Date) {
+    async createUtilisateur(
+        nom: string,
+        prenom: string,
+        mail: string,
+        password: string,
+        role: string,
+        notification: boolean,
+        langue: string,
+        date_naissance: Date
+    ) {
         try {
             const {data, error} = await supabase
                 .from('utilisateurs')
-                .insert([{id_utilisateur, nom, prenom, mail, role, notification, langue, date_naissance}])
+                .insert([{
+                    nom,
+                    prenom,
+                    mail,
+                    password,  // Hashed password
+                    role,
+                    notification,
+                    langue,
+                    date_naissance
+                }])
                 .select();
+
             if (error) throw error;
             logger.success('Utilisateur created');
             return data[0];
         } catch (error: any) {
-            logger.error('Error creating Utilisateur: ${error.message}');
+            logger.error(`Error creating Utilisateur: ${error.message}`);
+            throw error;
+        }
+    },
+
+    // Get user by email for authentication
+    async getUserByEmail(mail: string) {
+        try {
+            const {data, error} = await supabase
+                .from('utilisateurs')
+                .select('*')
+                .eq('mail', mail)
+                .single();
+
+            if (error) {
+                // If no rows returned, return null
+                if (error.code === 'PGRST116') {
+                    return null;
+                }
+                throw error;
+            }
+
+            return data;
+        } catch (error: any) {
+            logger.error(`Error fetching user by email: ${error.message}`);
             throw error;
         }
     },
@@ -23,10 +66,10 @@ export const UtilisateurModel = {
             const {data, error} = await supabase.from('utilisateurs').select('*');
             if (error) throw error;
 
-            logger.success('User fetched');
+            logger.success('Users fetched');
             return data;
         } catch (error: any) {
-            logger.error('Error fetching Utilisateurs: ${error.message}');
+            logger.error(`Error fetching Utilisateurs: ${error.message}`);
             throw error;
         }
     },
@@ -36,7 +79,7 @@ export const UtilisateurModel = {
             const {data, error} = await supabase
                 .from('utilisateurs')
                 .select('*')
-                .eq('id_utilisateur', id_utilisateur) //à voir avec Cian ce que cette ligne veut dire
+                .eq('id_utilisateur', id_utilisateur)
                 .single();
 
             if (error) throw error;
@@ -48,7 +91,7 @@ export const UtilisateurModel = {
             logger.success('User fetched');
             return data;
         } catch (error: any) {
-            logger.error('Error fetching Utilisateur by id: ${error.message}');
+            logger.error(`Error fetching Utilisateur by id: ${error.message}`);
             throw error;
         }
     },
@@ -69,9 +112,8 @@ export const UtilisateurModel = {
             logger.success('User fetched');
             return data;
         } catch (error: any) {
-            logger.error('Error fetching Utilisateurs by interet');
+            logger.error(`Error fetching Utilisateurs by interet: ${error.message}`);
             throw error;
-
         }
     },
 
@@ -92,7 +134,7 @@ export const UtilisateurModel = {
             logger.success('Utilisateur updated');
             return data[0];
         } catch (error: any) {
-            logger.error('Error updating Utilisateur: ${error.message}');
+            logger.error(`Error updating Utilisateur: ${error.message}`);
             throw error;
         }
     },
@@ -102,15 +144,15 @@ export const UtilisateurModel = {
             const {error} = await supabase
                 .from('utilisateurs')
                 .delete()
-                .eq('id_utilisateur', id_utilisateur)
+                .eq('id_utilisateur', id_utilisateur);
 
             if (error) throw error;
 
             logger.success('User deleted successfully.');
             return true;
         } catch (error: any) {
-            logger.error('Error deleting Utilisateur: ${error.message}');
+            logger.error(`Error deleting Utilisateur: ${error.message}`);
             throw error;
         }
     }
-}
+};

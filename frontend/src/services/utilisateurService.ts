@@ -1,46 +1,66 @@
 import axios from 'axios';
-import { User } from "lucide-react";
 
 const API_BASE_URL = 'http://localhost:3001/api';
 
+// Updated User interface to match backend
 interface Utilisateur {
-    id_utilisateur: string;
     nom: string;
     prenom: string;
     mail: string;
-    role: string;
-    notification: boolean;
-    langue: string;
+    role?: string;
+    notification?: boolean;
+    langue?: string;
     date_naissance: Date;
 }
 
-// Create a new user
-export const createUser = async (data: {
-    id_utilisateur: string;
+// Registration data interface
+interface RegistrationData {
     nom: string;
     prenom: string;
     mail: string;
-    role: string;
-    notification: boolean;
-    langue: string;
+    password: string;
     date_naissance: Date;
-}): Promise<Utilisateur> => {
+}
+
+// Login data interface
+interface LoginData {
+    mail: string;
+    password: string;
+}
+
+// Create a new user with registration data
+export const createUser = async (data: RegistrationData): Promise<Utilisateur> => {
     try {
-        const reponse = await axios.post(`${API_BASE_URL}/users`, data);
-        return reponse.data;
-    } catch (error) {
-        console.error("Error creating user: ", error);
+        const response = await axios.post(`${API_BASE_URL}/users`, {
+            ...data,
+            role: 'user',
+            notification: false,
+        });
+        return response.data;
+    } catch (error: any) {
+        console.error('Error creating user:', error.message);
         throw error;
     }
 };
 
-// Fetch users
-export const fetchUsersById = async () => {
+// Login user
+export const loginUser = async (data: LoginData) => {
     try {
-        const reponse = await axios.get(`${API_BASE_URL}/users/${id_utilisateur}`);
-        console.log("Raw API response: ", reponse.data);
+        const response = await axios.post(`${API_BASE_URL}/users/login`, data);
+        return response.data;
+    } catch (error) {
+        console.error("Error logging in: ", error);
+        throw error;
+    }
+};
 
-        const filteredData = reponse.data.filter((utilisateur: any) =>
+// Existing methods (kept for compatibility)
+export const fetchUsersById = async (id_utilisateur: string) => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/users/${id_utilisateur}`);
+        console.log("Raw API response: ", response.data);
+
+        const filteredData = response.data.filter((utilisateur: any) =>
             utilisateur.id_utilisateur === id_utilisateur
         );
         console.log("Filtered by id_utilisateur", filteredData);
@@ -56,13 +76,13 @@ export const fetchUsersById = async () => {
             date_naissance: utilisateur.date_naissance
         }));
     } catch (error) {
-        console.error("Error creating user: ", error);
+        console.error("Error fetching users: ", error);
         return [];
     }
 };
 
 export const fetchUserByInteret = async (id_interet: string) => {
-    try{
+    try {
         const response = await axios.get(`${API_BASE_URL}/users/${id_interet}`);
         console.log("Raw API response: ", response.data);
 
@@ -89,16 +109,7 @@ export const fetchUserByInteret = async (id_interet: string) => {
     }
 };
 
-export const updateUser = async (id_utilisateur: string, data: {
-    id_utilisateur: string;
-    nom: string;
-    prenom: string;
-    mail: string;
-    role: string;
-    notification: boolean;
-    langue: string;
-    date_naissance: Date;
-}): Promise<UtilisateurSettings> => {
+export const updateUser = async (id_utilisateur: string, data: Utilisateur) => {
     try {
         const response = await axios.put(`${API_BASE_URL}/users/${id_utilisateur}`, data);
         return response.data;
