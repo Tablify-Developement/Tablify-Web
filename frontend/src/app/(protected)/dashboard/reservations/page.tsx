@@ -1,11 +1,11 @@
 'use client';
 import DashboardLayout from '@/components/Dashboard/layout';
-import DashboardPage from '@/components/Dashboard/overview';
+import ReservationsPage from '@/components/Dashboard/reservations';
 
-export default function Dashboard() {
+export default function ReservationsRoute() {
     return (
         <DashboardLayout>
-            <DashboardPage />
+            <ReservationsPage />
         </DashboardLayout>
     );
 }

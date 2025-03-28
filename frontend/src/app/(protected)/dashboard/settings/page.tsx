@@ -1,11 +1,11 @@
 'use client';
 import DashboardLayout from '@/components/Dashboard/layout';
-import DashboardPage from '@/components/Dashboard/overview';
+import SettingsPage from '@/components/Dashboard/settings';
 
-export default function Dashboard() {
+export default function SettingsRoute() {
     return (
         <DashboardLayout>
-            <DashboardPage />
+            <SettingsPage />
         </DashboardLayout>
     );
 }
