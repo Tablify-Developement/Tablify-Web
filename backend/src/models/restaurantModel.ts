@@ -2,9 +2,64 @@
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 
+export interface RestaurantInput {
+    user_id: string | number;
+    restaurant_name: string;
+    restaurant_type: string;
+    address: string;
+    contact: string;
+    description?: string;
+    verification?: 'pending' | 'approved' | 'rejected';
+    image?: string;
+}
+
+export interface Restaurant extends RestaurantInput {
+    id: number;
+    created_at?: Date;
+}
+
 // Restaurant model
 export const RestaurantModel = {
     // Restaurant CRUD operations
+    // Fetch all restaurants
+    async getAllRestaurants(filters: {
+        status?: 'pending' | 'approved' | 'rejected',
+        type?: string,
+        search?: string
+    } = {}) {
+        try {
+            let query = supabase.from('restaurants').select('*');
+
+            // Filter by verification status
+            if (filters.status) {
+                query = query.eq('verification', filters.status);
+            }
+
+            // Filter by restaurant type
+            if (filters.type) {
+                query = query.eq('restaurant_type', filters.type);
+            }
+
+            // Search by name or description
+            if (filters.search) {
+                const searchTerm = filters.search.toLowerCase();
+                query = query
+                    .or(
+                        `restaurant_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`
+                    );
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            logger.success('Restaurants fetched successfully.');
+            return data as Restaurant[];
+        } catch (error: any) {
+            logger.error(`Error fetching restaurants: ${error.message}`);
+            throw error;
+        }
+    },
     // Also update this method
     async createRestaurant(user_id: string | number, restaurant_name: string, restaurant_type: string, address: string, contact: string, description: string) {
         try {
@@ -134,6 +189,7 @@ export const RestaurantModel = {
             throw error;
         }
     },
+
 
     // Tables Management
     async getRestaurantTables(restaurant_id: number) {

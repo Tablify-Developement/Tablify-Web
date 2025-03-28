@@ -4,7 +4,8 @@ import { logger } from './utils/logger';
 import dotenv from 'dotenv';
 import testRoutes from './routes/test';
 import restaurantRoutes from './routes/restaurantRoutes';
-import utilisateurRoutes from "./routes/utilisateurRoutes";
+import utilisateurRoutes from './routes/utilisateurRoutes';
+import reservationRoutes from './routes/reservationRoutes';
 
 
 // Load environment variables
@@ -25,6 +26,7 @@ app.use('/services', testRoutes);
 app.use('/api', testRoutes);
 app.use('/api/users', utilisateurRoutes);
 app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 // Health check endpoint
 app.get('/', (req: Request, res: Response) => {
