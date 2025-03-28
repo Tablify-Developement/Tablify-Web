@@ -61,8 +61,8 @@ export default function LoginPage() {
             // Store auth data via context
             login(response.user, response.token);
 
-            // Redirect to dashboard
-            router.push('/dashboard');
+            // Redirect to home page after successful login
+            router.push('/');
         } catch (error: any) {
             // Handle login error
             const errorMessage = error.response?.data?.message ||

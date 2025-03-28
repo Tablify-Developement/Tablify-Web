@@ -1,7 +1,7 @@
 // File: src/components/HomePage/Header.tsx
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import {
@@ -14,11 +14,39 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ModeToggle } from "@/components/ui/ThemeButton";
-import { GalleryVerticalEnd, LogIn, User, Settings, LogOut } from "lucide-react";
+import {
+    GalleryVerticalEnd,
+    LogIn,
+    User,
+    Settings,
+    LogOut,
+    PlusCircle
+} from "lucide-react";
 import { useAuth } from '@/context/auth-context';
+import { fetchRestaurantsByUserId } from '@/services/restaurantService';
+import { CreateRestaurantModal } from '@/components/CreateRestaurant/CreateRestaurantModal';
 
 export function Header() {
     const { user, isAuthenticated, isLoading, logout } = useAuth();
+    const [hasRestaurants, setHasRestaurants] = useState<boolean>(false);
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+
+    // Check if user has restaurants
+    useEffect(() => {
+        const checkUserRestaurants = async () => {
+            if (isAuthenticated && user?.id) {
+                try {
+                    const restaurants = await fetchRestaurantsByUserId(user.id);
+                    setHasRestaurants(restaurants.length > 0);
+                } catch (error) {
+                    console.error("Error fetching user restaurants:", error);
+                    setHasRestaurants(false);
+                }
+            }
+        };
+
+        checkUserRestaurants();
+    }, [isAuthenticated, user]);
 
     // Generate user initials for the avatar
     const getUserInitials = (): string => {
@@ -28,6 +56,12 @@ export function Header() {
         const lastInitial = user.nom.charAt(0).toUpperCase();
 
         return `${firstInitial}${lastInitial}`;
+    };
+
+    // Handle restaurant creation success
+    const handleRestaurantCreated = () => {
+        setHasRestaurants(true);
+        setIsModalOpen(false);
     };
 
     return (
@@ -67,12 +101,19 @@ export function Header() {
                                         </div>
                                     </DropdownMenuLabel>
                                     <DropdownMenuSeparator />
-                                    <Link href="/dashboard">
-                                        <DropdownMenuItem>
-                                            <User className="mr-2 h-4 w-4" />
-                                            Dashboard
+                                    {hasRestaurants ? (
+                                        <Link href="/dashboard">
+                                            <DropdownMenuItem>
+                                                <User className="mr-2 h-4 w-4" />
+                                                Dashboard
+                                            </DropdownMenuItem>
+                                        </Link>
+                                    ) : (
+                                        <DropdownMenuItem onClick={() => setIsModalOpen(true)}>
+                                            <PlusCircle className="mr-2 h-4 w-4" />
+                                            Create Restaurant
                                         </DropdownMenuItem>
-                                    </Link>
+                                    )}
                                     <Link href="/settings">
                                         <DropdownMenuItem>
                                             <Settings className="mr-2 h-4 w-4" />
@@ -97,6 +138,13 @@ export function Header() {
                     </nav>
                 </div>
             </div>
+
+            {/* Restaurant Creation Modal */}
+            <CreateRestaurantModal
+                open={isModalOpen}
+                onOpenChange={setIsModalOpen}
+                onSuccess={handleRestaurantCreated}
+            />
         </header>
     );
 }
