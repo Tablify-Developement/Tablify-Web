@@ -9,4 +9,10 @@ router.get('/', UtilisateurController.getAllUtilisateurs);
 
 router.get('/:id', UtilisateurController.getUtilisateurById);
 
+router.get('/:id_interet', UtilisateurController.getUtilisateurByInteret);
+
+router.put('/:id', UtilisateurController.updateUtilisateur);
+
+router.delete('/:id', UtilisateurController.deleteUtilisateur);
+
 export default router;

@@ -1,36 +1,113 @@
 import axios from 'axios';
 import { User } from "lucide-react";
 
-const API_URL_CREATE = 'http://localhost:3001/api/users';
-const API_URL_FETCH = 'http://localhost:3001/api/users';
+const API_BASE_URL = 'http://localhost:3001/api';
 
-// Create a new user
-export const createUser = async (data: {
+interface Utilisateur {
+    id_utilisateur: string;
     nom: string;
     prenom: string;
     mail: string;
     role: string;
     notification: boolean;
     langue: string;
-}) => {
-    const response = await axios.post(API_URL_CREATE, data);
-    return response.data;
+}
+
+// Create a new user
+export const createUser = async (data: {
+    id_utilisateur: string;
+    nom: string;
+    prenom: string;
+    mail: string;
+    role: string;
+    notification: boolean;
+    langue: string;
+}): Promise<Utilisateur> => {
+    try {
+        const reponse = await axios.post(`${API_BASE_URL}/users`, data);
+        return reponse.data;
+    } catch (error) {
+        console.error("Error creating user: ", error);
+        throw error;
+    }
 };
 
 // Fetch users
-export const fetchUsers = async () => {
+export const fetchUsersById = async () => {
     try {
-        const response = await axios.get(API_URL_FETCH);
-        console.log("Raw API response:", response.data);
+        const reponse = await axios.get(`${API_BASE_URL}/users/${id_utilisateur}`);
+        console.log("Raw API response: ", reponse.data);
 
-        return response.data.map((user: { prenom: string; nom: string; role: string; langue: string; }) => ({
-            name: `${user.prenom} ${user.nom}`,
-            logo: User,
-            role: user.role,
-            langue: user.langue
+        const filteredData = reponse.data.filter((utilisateur: any) =>
+            utilisateur.id_utilisateur === id_utilisateur
+        );
+        console.log("Filtered by id_utilisateur", filteredData);
+
+        return filteredData.map((utilisateur: any) => ({
+            id_utilisateur: utilisateur.id_utilisateur,
+            nom: utilisateur.nom,
+            prenom: utilisateur.prenom,
+            mail: utilisateur.mail,
+            role: utilisateur.role,
+            notification: utilisateur.notification,
+            langue: utilisateur.langue,
         }));
     } catch (error) {
-        console.error("Error fetching users:", error);
+        console.error("Error creating user: ", error);
         return [];
+    }
+};
+
+export const fetchUserByInteret = async (id_interet: string) => {
+    try{
+        const response = await axios.get(`${API_BASE_URL}/users/${id_interet}`);
+        console.log("Raw API response: ", response.data);
+
+        const filteredData = response.data.filter((utilisateur: any) =>
+            utilisateur.id_utilisateur === id_interet
+        );
+
+        console.log("Filtered by id_interet", filteredData);
+
+        return filteredData.map((utilisateur: any) => ({
+            id_interet: utilisateur.id_interet,
+            id_utilisateur: utilisateur.id_utilisateur,
+            nom: utilisateur.nom,
+            prenom: utilisateur.prenom,
+            mail: utilisateur.mail,
+            role: utilisateur.role,
+            notification: utilisateur.notification,
+            langue: utilisateur.langue,
+        }));
+    } catch (error) {
+        console.error("Error fetching user: ", error);
+        return [];
+    }
+};
+
+export const updateUser = async (id_utilisateur: string, data: {
+    id_utilisateur: string;
+    nom: string;
+    prenom: string;
+    mail: string;
+    role: string;
+    notification: boolean;
+    langue: string;
+}): Promise<UtilisateurSettings> => {
+    try {
+        const response = await axios.put(`${API_BASE_URL}/users/${id_utilisateur}`, data);
+        return response.data;
+    } catch (error) {
+        console.error("Error updating user: ", error);
+        throw error;
+    }
+};
+
+export const deleteUser = async (id_utilisateur: string): Promise<void> => {
+    try {
+        await axios.delete(`${API_BASE_URL}/users/${id_utilisateur}`);
+    } catch (error) {
+        console.error("Error deleting user: ", error);
+        throw error;
     }
 };

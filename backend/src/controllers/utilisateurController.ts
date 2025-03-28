@@ -58,4 +58,46 @@ export const UtilisateurController = {
             res.status(500).json({error: 'Error getting Utilisateur by id'});
         }
     },
-};
+
+    getUtilisateurByInteret: async (req: Request, res: Response): Promise<void> => {
+        const {id_interet} = req.params;
+        if (!id_interet) {
+            res.status(400).json({error: 'ID interet required'});
+            return;
+        } try {
+            const utilisateur = await UtilisateurModel.getUtilisateurByInteret(id_interet);
+            res.status(200).json(utilisateur);
+        } catch (error: any) {
+            logger.error(`Error getting Utilisateur by interet: ${error.message}`);
+            res.status(500).json({error: 'Error getting Utilisateur'});
+        }
+    },
+
+    updateUtilisateur: async (req: Request, res: Response):  Promise<void> => {
+        const {id_utilisateur} = req.params;
+        if (!id_utilisateur) {
+            res.status(400).json({error: 'ID utilisateur required'});
+            return;
+        } try {
+            const utilisateur = await UtilisateurModel.updateUtilisateur(id_utilisateur);
+            res.status(200).json(utilisateur);
+        } catch (error: any) {
+            logger.error(`Error updating Utilisateur: ${error.message}`);
+            res.status(500).json({error: 'Error updating Utilisateur'});
+        }
+    },
+
+    deleteUtilisateur: async (req: Request, res: Response): Promise<void> => {
+        const {id_utilisateur} = req.params;
+        if (!id_utilisateur) {
+            res.status(400).json({error: 'ID utilisateur required'});
+            return;
+        } try {
+            const utilisateur = await UtilisateurModel.deleteUtilisateur(id_utilisateur);
+            res.status(200).json(utilisateur);
+        } catch (error: any) {
+            logger.error(`Error deleting Utilisateur: ${error.message}`);
+            res.status(500).json({error: 'Error deleting Utilisateur'});
+        }
+    }
+}

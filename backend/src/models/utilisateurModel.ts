@@ -53,7 +53,7 @@ export const UtilisateurModel = {
         }
     },
 
-    async getUtilisateursByInterets(id_interet: string) {
+    async getUtilisateurByInteret(id_interet: string) {
         try {
             const {data, error} = await supabase
                 .from('interets')
@@ -64,7 +64,7 @@ export const UtilisateurModel = {
             if (error) throw error;
 
             if (!data) {
-                throw new Error('Interets not found');
+                throw new Error('Interet not found');
             }
             logger.success('User fetched');
             return data;
@@ -72,6 +72,45 @@ export const UtilisateurModel = {
             logger.error('Error fetching Utilisateurs by interet');
             throw error;
 
+        }
+    },
+
+    async updateUtilisateur(id_utilisateur: string, updateData: any) {
+        try {
+            const {data, error} = await supabase
+                .from('utilisateurs')
+                .update(updateData)
+                .eq('id_utilisateur', id_utilisateur)
+                .select();
+
+            if (error) throw error;
+
+            if(!data || data.length === 0) {
+                return null;
+            }
+
+            logger.success('Utilisateur updated');
+            return data[0];
+        } catch (error: any) {
+            logger.error('Error updating Utilisateur: ${error.message}');
+            throw error;
+        }
+    },
+
+    async deleteUtilisateur(id_utilisateur: string) {
+        try {
+            const {error} = await supabase
+                .from('utilisateurs')
+                .delete()
+                .eq('id_utilisateur', id_utilisateur)
+
+            if (error) throw error;
+
+            logger.success('User deleted successfully.');
+            return true;
+        } catch (error: any) {
+            logger.error('Error deleting Utilisateur: ${error.message}');
+            throw error;
         }
     }
 }
