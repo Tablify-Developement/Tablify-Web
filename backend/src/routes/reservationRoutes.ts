@@ -14,9 +14,12 @@ router.get('/restaurant/:restaurantId', ReservationController.getReservations);
 router.get('/:id', ReservationController.getReservationById);
 router.put('/:id', ReservationController.updateReservation);
 router.delete('/:id', ReservationController.deleteReservation);
-router.post('/:id/cancel', ReservationController.cancelReservation);
+router.patch('/:id/cancel', ReservationController.cancelReservation);
 
 // Time slots availability
 router.get('/time-slots/:restaurantId', ReservationController.getAvailableTimeSlots);
+
+// Available tables for a specific time
+router.get('/available-tables/:restaurantId', ReservationController.getAvailableTablesForTime);
 
 export default router;

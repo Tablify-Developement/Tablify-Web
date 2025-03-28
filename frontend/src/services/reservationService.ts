@@ -26,7 +26,7 @@ export interface ReservationCreate {
     reservation_time: string; // Changed from time
     party_size: number; // Changed from guests
     special_requests?: string; // Changed from notes, optional
-    table_id?: number; // Optional
+    table_id?: number; // Optional, but will be used for table selection
 }
 
 // Create a new reservation
@@ -53,6 +53,24 @@ export const getAvailableTimeSlots = async (
         return response.data.available_time_slots;
     } catch (error) {
         console.error("Error fetching available time slots:", error);
+        throw error;
+    }
+};
+
+// Get available tables for a specific time
+export const getAvailableTablesForTime = async (
+    restaurantId: number,
+    date: string,
+    time: string,
+    partySize: number
+): Promise<any[]> => {
+    try {
+        const response = await axios.get(
+            `${API_BASE_URL}/reservations/available-tables/${restaurantId}?date=${date}&time=${time}&party_size=${partySize}`
+        );
+        return response.data.available_tables;
+    } catch (error) {
+        console.error("Error fetching available tables:", error);
         throw error;
     }
 };

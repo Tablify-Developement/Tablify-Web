@@ -1,6 +1,7 @@
 // backend/src/controllers/reservationController.ts
 import { Request, Response } from 'express';
 import { ReservationModel } from '../models/reservationModel';
+import { RestaurantModel } from '../models/restaurantModel';
 import { logger } from '../utils/logger';
 
 export const ReservationController = {
@@ -44,6 +45,26 @@ export const ReservationController = {
                 return;
             }
 
+            // If table_id is provided, verify that the table is valid and available
+            if (table_id) {
+                const availableTables = await ReservationModel.getAvailableTablesForTime(
+                    restaurant_id,
+                    reservation_date,
+                    reservation_time,
+                    party_size
+                );
+
+                const isTableAvailable = availableTables.some(table => table.id === table_id);
+
+                if (!isTableAvailable) {
+                    res.status(400).json({
+                        error: 'Table not available',
+                        message: 'The selected table is not available for this time'
+                    });
+                    return;
+                }
+            }
+
             // Create the reservation
             const reservation = await ReservationModel.createReservation(
                 restaurant_id,
@@ -65,6 +86,51 @@ export const ReservationController = {
             logger.error(`Error creating reservation: ${error.message}`);
             res.status(500).json({
                 error: 'An error occurred while creating the reservation',
+                details: error.message
+            });
+        }
+    },
+
+    // Get available tables for a specific time
+    getAvailableTablesForTime: async (req: Request, res: Response): Promise<void> => {
+        const { restaurantId } = req.params;
+        const { date, time, party_size } = req.query;
+
+        if (!restaurantId || !date || !time || !party_size) {
+            res.status(400).json({
+                error: 'Missing parameters',
+                message: 'Restaurant ID, date, time, and party size are required'
+            });
+            return;
+        }
+
+        try {
+            // First, get all tables for the restaurant
+            const allTables = await RestaurantModel.getRestaurantTables(parseInt(restaurantId));
+
+            if (!allTables || allTables.length === 0) {
+                res.status(404).json({
+                    error: 'No tables found',
+                    message: 'No tables are configured for this restaurant'
+                });
+                return;
+            }
+
+            // Then, get available tables for the specific time
+            const availableTables = await ReservationModel.getAvailableTablesForTime(
+                parseInt(restaurantId),
+                date as string,
+                time as string,
+                parseInt(party_size as string)
+            );
+
+            res.status(200).json({
+                available_tables: availableTables
+            });
+        } catch (error: any) {
+            logger.error(`Error finding available tables: ${error.message}`);
+            res.status(500).json({
+                error: 'An error occurred while finding available tables',
                 details: error.message
             });
         }
@@ -213,6 +279,33 @@ export const ReservationController = {
         }
     },
 
+    // Get available time slots
+    getAvailableTimeSlots: async (req: Request, res: Response): Promise<void> => {
+        const { restaurantId } = req.params;
+        const { date, party_size } = req.query;
+
+        if (!restaurantId || !date || !party_size) {
+            res.status(400).json({ error: 'Restaurant ID, date and party size are required' });
+            return;
+        }
+
+        try {
+            const timeSlots = await ReservationModel.getAvailableTimeSlots(
+                parseInt(restaurantId),
+                date as string,
+                parseInt(party_size as string)
+            );
+
+            res.status(200).json({ available_time_slots: timeSlots });
+        } catch (error: any) {
+            logger.error(`Error getting available time slots: ${error.message}`);
+            res.status(500).json({
+                error: 'An error occurred while getting available time slots',
+                details: error.message
+            });
+        }
+    },
+
     // Cancel a reservation
     cancelReservation: async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
@@ -252,33 +345,6 @@ export const ReservationController = {
             logger.error(`Error cancelling reservation: ${error.message}`);
             res.status(500).json({
                 error: 'An error occurred while cancelling the reservation',
-                details: error.message
-            });
-        }
-    },
-
-    // Get available time slots
-    getAvailableTimeSlots: async (req: Request, res: Response): Promise<void> => {
-        const { restaurantId } = req.params;
-        const { date, party_size } = req.query;
-
-        if (!restaurantId || !date || !party_size) {
-            res.status(400).json({ error: 'Restaurant ID, date and party size are required' });
-            return;
-        }
-
-        try {
-            const timeSlots = await ReservationModel.getAvailableTimeSlots(
-                parseInt(restaurantId),
-                date as string,
-                parseInt(party_size as string)
-            );
-
-            res.status(200).json({ available_time_slots: timeSlots });
-        } catch (error: any) {
-            logger.error(`Error getting available time slots: ${error.message}`);
-            res.status(500).json({
-                error: 'An error occurred while getting available time slots',
                 details: error.message
             });
         }

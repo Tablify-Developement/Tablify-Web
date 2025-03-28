@@ -88,6 +88,110 @@ export const ReservationModel = {
         }
     },
 
+    // Get all reserved table IDs for a specific time
+    async getReservedTablesForTime(restaurantId: number, date: string, time: string): Promise<number[]> {
+        try {
+            // Calculate start and end times for the reservation window
+            // Assuming a 90-minute reservation duration
+            const endTime = this.calculateEndTime(time, 90);
+
+            // Convert times to minutes for easier comparison
+            const requestedStartMins = this.timeToMinutes(time);
+            const requestedEndMins = this.timeToMinutes(endTime);
+
+            // Get all reservations for this restaurant on this date
+            const { data, error } = await supabase
+                .from('restaurant_reservations')
+                .select('table_id, reservation_time, end_time')
+                .eq('restaurant_id', restaurantId)
+                .eq('reservation_date', date)
+                .not('status', 'eq', 'cancelled')
+                .not('table_id', 'is', null);
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                return []; // No reservations, so no tables are reserved
+            }
+
+            // Find tables that overlap with the requested time window
+            const reservedTableIds = data
+                .filter(reservation => {
+                    // Skip if no table ID
+                    if (!reservation.table_id) return false;
+
+                    const resStartMins = this.timeToMinutes(reservation.reservation_time);
+                    const resEndMins = this.timeToMinutes(reservation.end_time);
+
+                    // Check for overlap: if either the start or end time falls within the existing reservation
+                    // or if the existing reservation is completely contained within the new time slot
+                    return (
+                        (requestedStartMins >= resStartMins && requestedStartMins < resEndMins) || // New start time is within existing reservation
+                        (requestedEndMins > resStartMins && requestedEndMins <= resEndMins) || // New end time is within existing reservation
+                        (requestedStartMins <= resStartMins && requestedEndMins >= resEndMins) // New time completely contains existing reservation
+                    );
+                })
+                .map(reservation => reservation.table_id as number);
+
+            return reservedTableIds;
+        } catch (error: any) {
+            logger.error(`Error fetching reserved tables: ${error.message}`);
+            throw error;
+        }
+    },
+
+    // Get available tables for a time and party size
+    async getAvailableTablesForTime(
+        restaurantId: number,
+        date: string,
+        time: string,
+        partySize: number
+    ) {
+        try {
+            // Get all tables for the restaurant
+            const { data: tables, error: tablesError } = await supabase
+                .from('restaurant_tables')
+                .select('*')
+                .eq('restaurant_id', restaurantId);
+
+            if (tablesError) throw tablesError;
+
+            if (!tables || tables.length === 0) {
+                return []; // No tables available
+            }
+
+            // Get reserved table IDs
+            const reservedTableIds = await this.getReservedTablesForTime(restaurantId, date, time);
+
+            // Filter available tables by capacity and reservation status
+            const availableTables = tables
+                .filter(table => {
+                    // Skip if table is already reserved
+                    if (reservedTableIds.includes(table.id)) return false;
+
+                    // Skip if table status doesn't allow booking
+                    if (table.status !== 'available') return false;
+
+                    // Check capacity - convert to number if it's a string
+                    const capacity = typeof table.capacity === 'string' ? parseInt(table.capacity) : table.capacity;
+
+                    // Table must be able to accommodate the party size
+                    return capacity >= partySize;
+                })
+                // Sort by capacity to get best fit
+                .sort((a, b) => {
+                    const capA = typeof a.capacity === 'string' ? parseInt(a.capacity) : a.capacity;
+                    const capB = typeof b.capacity === 'string' ? parseInt(b.capacity) : b.capacity;
+                    return capA - capB; // Ascending order - smallest suitable table first
+                });
+
+            return availableTables;
+        } catch (error: any) {
+            logger.error(`Error fetching available tables: ${error.message}`);
+            throw error;
+        }
+    },
+
     // Get a single reservation by ID
     async getReservationById(id: number) {
         try {
@@ -318,7 +422,12 @@ export const ReservationModel = {
 
         // Find tables that can accommodate the party size
         const suitableTables = tables.filter(table => {
-            return parseInt(table.capacity) >= partySize;
+            // Skip unavailable tables
+            if (table.status !== 'available') return false;
+
+            // Convert capacity to number to ensure proper comparison
+            const tableCapacity = typeof table.capacity === 'string' ? parseInt(table.capacity) : table.capacity;
+            return tableCapacity >= partySize;
         });
 
         if (suitableTables.length === 0) {
