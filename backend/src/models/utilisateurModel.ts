@@ -64,7 +64,7 @@ export const UtilisateurModel = {
             if (error) throw error;
 
             if (!data) {
-                throw new Error('Interêts not found');
+                throw new Error('Interets not found');
             }
             logger.success('User fetched');
             return data;

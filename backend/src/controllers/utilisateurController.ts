@@ -3,6 +3,7 @@ import {UtilisateurModel} from "../models/utilisateurModel";
 import {logger} from '../utils/logger';
 
 export const UtilisateurController = {
+    // Créer un utilisateur
     createUtilisateur: async (req: Request, res: Response) => {
         const {id_utilisateur, nom, prenom, mail, role, notification, langue} = req.body;
 
