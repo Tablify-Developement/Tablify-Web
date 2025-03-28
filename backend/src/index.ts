@@ -20,6 +20,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/services', testRoutes);
 app.use('/api', testRoutes);
 
 app.use('/api/restaurants', restaurantRoutes);
