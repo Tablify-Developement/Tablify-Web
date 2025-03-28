@@ -21,10 +21,12 @@ export function Header() {
         <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
             <div className="w-full max-w-screen-xl mx-auto flex items-center justify-center h-14 px-4">
                 <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-4">
-                        <GalleryVerticalEnd className="h-6 w-6" />
-                        <span className="font-bold">Tablify</span>
-                    </div>
+                    <Link href="/">
+                        <div className="flex items-center gap-4">
+                            <GalleryVerticalEnd className="h-6 w-6" />
+                            <span className="font-bold">Tablify</span>
+                        </div>
+                    </Link>
 
                     <nav className="flex items-center space-x-4">
                         <Link href="/book">
