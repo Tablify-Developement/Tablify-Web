@@ -3,11 +3,11 @@ import {logger} from '../utils/logger';
 
 // Utilisateurs model
 export const UtilisateurModel = {
-    async createUtilisateur(id_utilisateur: string, nom: string, prenom: string, mail: string, role: string, notification: boolean, langue: string) {
+    async createUtilisateur(id_utilisateur: string, nom: string, prenom: string, mail: string, role: string, notification: boolean, langue: string, date_naissance: Date) {
         try {
             const {data, error} = await supabase
                 .from('utilisateurs')
-                .insert([{id_utilisateur, nom, prenom, mail, role, notification, langue}])
+                .insert([{id_utilisateur, nom, prenom, mail, role, notification, langue, date_naissance}])
                 .select();
             if (error) throw error;
             logger.success('Utilisateur created');

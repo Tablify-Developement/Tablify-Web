@@ -11,6 +11,7 @@ interface Utilisateur {
     role: string;
     notification: boolean;
     langue: string;
+    date_naissance: Date;
 }
 
 // Create a new user
@@ -22,6 +23,7 @@ export const createUser = async (data: {
     role: string;
     notification: boolean;
     langue: string;
+    date_naissance: Date;
 }): Promise<Utilisateur> => {
     try {
         const reponse = await axios.post(`${API_BASE_URL}/users`, data);
@@ -51,6 +53,7 @@ export const fetchUsersById = async () => {
             role: utilisateur.role,
             notification: utilisateur.notification,
             langue: utilisateur.langue,
+            date_naissance: utilisateur.date_naissance
         }));
     } catch (error) {
         console.error("Error creating user: ", error);
@@ -78,6 +81,7 @@ export const fetchUserByInteret = async (id_interet: string) => {
             role: utilisateur.role,
             notification: utilisateur.notification,
             langue: utilisateur.langue,
+            date_naissance: utilisateur.date_naissance
         }));
     } catch (error) {
         console.error("Error fetching user: ", error);
@@ -93,6 +97,7 @@ export const updateUser = async (id_utilisateur: string, data: {
     role: string;
     notification: boolean;
     langue: string;
+    date_naissance: Date;
 }): Promise<UtilisateurSettings> => {
     try {
         const response = await axios.put(`${API_BASE_URL}/users/${id_utilisateur}`, data);
