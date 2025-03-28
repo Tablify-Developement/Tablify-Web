@@ -1,11 +1,13 @@
+// File: src/components/Auth/Register.tsx
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createUser } from '@/services/utilisateurService';
+import { createUser, loginUser } from '@/services/utilisateurService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -24,6 +26,7 @@ import {
     CardTitle
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
 
 // Validation schema
 const registrationSchema = z.object({
@@ -50,6 +53,8 @@ export default function RegisterPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const router = useRouter();
+    const { login } = useAuth();
 
     // Form setup
     const form = useForm<z.infer<typeof registrationSchema>>({
@@ -80,12 +85,32 @@ export default function RegisterPage() {
                 password: values.password
             };
 
-            // Call registration service
+            // Register the user
             await createUser(registrationData);
 
-            // Reset form and show success
-            form.reset();
+            // Show success message
             setSubmitSuccess(true);
+
+            // Auto-login after successful registration
+            try {
+                const loginResponse = await loginUser({
+                    mail: values.mail,
+                    password: values.password
+                });
+
+                // Store authentication with context
+                login(loginResponse.user, loginResponse.token);
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    router.push('/dashboard');
+                }, 1500); // Small delay to show success message
+
+            } catch (loginError) {
+                console.error("Auto-login failed:", loginError);
+                // If auto-login fails, just stay on success screen
+                // User can manually go to login
+            }
         } catch (error: any) {
             // Handle registration error
             setSubmitError(error.response?.data?.message || "Registration failed. Please try again.");
@@ -111,7 +136,7 @@ export default function RegisterPage() {
                     )}
                     {submitSuccess && (
                         <div className="bg-green-50 text-green-800 p-3 rounded-md mb-4">
-                            Registration successful! You can now log in.
+                            Registration successful! Redirecting you to the dashboard...
                         </div>
                     )}
                     <Form {...form}>
@@ -201,7 +226,7 @@ export default function RegisterPage() {
                                 )}
                             />
 
-                            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            <Button type="submit" className="w-full" disabled={isSubmitting || submitSuccess}>
                                 {isSubmitting ? (
                                     <>
                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

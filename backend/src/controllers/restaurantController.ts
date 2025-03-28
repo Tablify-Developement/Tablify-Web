@@ -5,18 +5,58 @@ import { logger } from '../utils/logger';
 
 // Controller for restaurant-related operations
 export const RestaurantController = {
-    // Create a new restaurant
+    // Get restaurants for the current authenticated user
+    getRestaurantsForCurrentUser: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log("getRestaurantsForCurrentUser method called");
+            console.log("req.user:", JSON.stringify(req.user));
+
+            // Get user ID from the authenticated request
+            const userId = req.user?.id || req.user?.id_utilisateur;
+
+            console.log("Extracted userId:", userId);
+
+            if (!userId) {
+                console.log("No user ID found in token");
+                res.status(400).json({ error: 'User ID is required' });
+                return;
+            }
+
+            console.log("Fetching restaurants for user ID:", userId);
+
+            try {
+                const restaurants = await RestaurantModel.getRestaurantsByUserId(userId);
+                console.log("Restaurants fetched successfully:", restaurants);
+                res.status(200).json(restaurants);
+            } catch (dbError) {
+                console.error("Database error:", dbError);
+                res.status(500).json({ error: 'Database error while fetching restaurants' });
+            }
+        } catch (error: any) {
+            console.error("Controller error:", error);
+            logger.error(`Error fetching restaurants for current user: ${error.message}`);
+            res.status(500).json({ error: 'An error occurred while fetching restaurants' });
+        }
+    },
+
+// Update the createRestaurant method
     createRestaurant: async (req: Request, res: Response): Promise<void> => {
-        const { user_id, restaurant_name, restaurant_type, address, contact, description } = req.body;
+        // Get data from request body
+        const { restaurant_name, restaurant_type, address, contact, description } = req.body;
+
+        // Get user_id from auth token or from request body
+        const user_id = req.user?.id || req.user?.id_utilisateur || req.body.user_id;
 
         // Validate required fields
-        if (!user_id || !restaurant_name || !restaurant_type || !address || !contact || !description) {
+        if (!user_id || !restaurant_name || !restaurant_type || !address || !contact) {
             logger.warn('All fields are required.');
-            res.status(400).json({ error: 'All fields are required' });
+            res.status(400).json({ error: 'All required fields must be provided' });
             return;
         }
 
         try {
+            console.log(`Creating restaurant for user ${user_id}`);
+
             // Create the restaurant in the database
             const newRestaurant = await RestaurantModel.createRestaurant(
                 user_id,
@@ -24,7 +64,7 @@ export const RestaurantController = {
                 restaurant_type,
                 address,
                 contact,
-                description
+                description || ''
             );
 
             // Respond with the created restaurant
@@ -117,17 +157,22 @@ export const RestaurantController = {
 
     // Get restaurants by user ID
     getRestaurantsByUserId: async (req: Request, res: Response): Promise<void> => {
-        const { user_id } = req.params; // Get the user_id from URL params
+        const { user_id } = req.params;
+
+        console.log("Received user ID:", user_id);
+        console.log("User ID type:", typeof user_id);
+
         if (!user_id) {
             res.status(400).json({ error: 'User ID is required' });
             return;
         }
+
         try {
-            const restaurants = await RestaurantModel.getRestaurantsByUserId(Number(user_id));
+            const restaurants = await RestaurantModel.getRestaurantsByUserId(user_id); // Use directly as a string
             res.status(200).json(restaurants);
         } catch (error: any) {
-            logger.error(`Error fetching restaurants by user ID: ${error.message}`);
-            res.status(500).json({ error: 'An error occurred while fetching restaurants by user ID' });
+            console.error(`Detailed error fetching restaurants: ${error.message}`);
+            res.status(500).json({ error: 'An error occurred while fetching restaurants' });
         }
     },
 
