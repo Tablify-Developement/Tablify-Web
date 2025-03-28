@@ -207,3 +207,13 @@ export const updateRestaurantSettings = async (restaurant_id: number, data: {
         throw error;
     }
 };
+
+export const fetchAllRestaurants = async (): Promise<Restaurant[]> => {
+    try {
+        const response = await axios.get(`${API_BASE_URL}/restaurants`);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching all restaurants:", error);
+        throw error;
+    }
+};

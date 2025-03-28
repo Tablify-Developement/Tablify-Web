@@ -39,9 +39,9 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { fetchRestaurantsByUserId } from '@/services/restaurantService';
-import { fetchRestaurantHours } from '@/services/restaurantService';
-import { createReservation, getAvailableTimeSlots } from '@/services/reservationService';
+import { fetchAllRestaurants, fetchRestaurantHours } from '@/services/restaurantService';
+import { createReservation, getAvailableTimeSlots, ReservationCreate } from '@/services/reservationService';
+import { useRouter } from 'next/navigation';
 
 interface Restaurant {
     id: number;
@@ -51,7 +51,9 @@ interface Restaurant {
     address?: string;
     contact?: string;
     description?: string;
-    image?: string; // URL to restaurant image
+    image?: string;
+    restaurant_name?: string;
+    restaurant_type?: string;
 }
 
 interface OpeningHours {
@@ -68,16 +70,16 @@ interface OpeningHours {
 interface ReservationFormData {
     restaurant_id: number;
     customer_name: string;
-    customer_phone: string; // Changed from contact
+    customer_phone: string;
     customer_email: string;
-    date: Date; // Keep as Date for the datepicker
+    date: Date;
     time: string;
-    party_size: number; // Changed from guests
-    special_requests: string; // Changed from notes
+    party_size: number;
+    special_requests: string;
 }
 
 export default function PublicReservationPage() {
-    // State for all restaurants
+    const router = useRouter();
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -93,12 +95,12 @@ export default function PublicReservationPage() {
     const [reservationForm, setReservationForm] = useState<ReservationFormData>({
         restaurant_id: 0,
         customer_name: '',
-        customer_phone: '', // Changed from contact
+        customer_phone: '',
         customer_email: '',
         date: new Date(),
         time: '',
-        party_size: 2, // Changed from guests
-        special_requests: '', // Changed from notes
+        party_size: 2,
+        special_requests: '',
     });
     const [datePickerOpen, setDatePickerOpen] = useState(false);
     const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
@@ -110,57 +112,25 @@ export default function PublicReservationPage() {
         const fetchRestaurants = async () => {
             setIsLoading(true);
             try {
-                // Use the service function instead of direct axios call
-                const data = await fetchRestaurantsByUserId(2); // Using userId 2 as per requirements
-                setRestaurants(data);
-                setFilteredRestaurants(data);
+                // Use the service function to fetch all restaurants
+                const data = await fetchAllRestaurants();
+
+                // Transform the data to match our component's expected format
+                const transformedData = data.map(restaurant => ({
+                    id: restaurant.id,
+                    name: restaurant.restaurant_name,
+                    plan: restaurant.restaurant_type,
+                    address: restaurant.address,
+                    contact: restaurant.contact,
+                    description: restaurant.description
+                }));
+
+                setRestaurants(transformedData);
+                setFilteredRestaurants(transformedData);
             } catch (error) {
                 console.error('Error fetching restaurants:', error);
-                // For demo, use mock data
-                const mockData = [
-                    {
-                        id: 1,
-                        name: 'La Belle Cuisine', // Note: changed from restaurant_name to name to match service response
-                        plan: 'fine_dining',      // Changed from restaurant_type to plan
-                        address: '123 Main St, City',
-                        contact: '555-123-4567',
-                        description: 'Elegant fine dining experience with French cuisine.'
-                    },
-                    {
-                        id: 2,
-                        name: 'Pasta Paradise',
-                        plan: 'casual',
-                        address: '456 Oak Ave, Town',
-                        contact: '555-987-6543',
-                        description: 'Authentic Italian pasta and pizzas in a casual setting.'
-                    },
-                    {
-                        id: 3,
-                        name: 'Sushi Sensation',
-                        plan: 'fine_dining',
-                        address: '789 Pine Blvd, Village',
-                        contact: '555-567-8901',
-                        description: 'Premium Japanese sushi prepared by master chefs.'
-                    },
-                    {
-                        id: 4,
-                        name: 'Burger Bistro',
-                        plan: 'fast_food',
-                        address: '321 Elm St, County',
-                        contact: '555-345-6789',
-                        description: 'Gourmet burgers and hand-cut fries.'
-                    },
-                    {
-                        id: 5,
-                        name: 'Morning Brew Café',
-                        plan: 'cafe',
-                        address: '567 Maple Dr, District',
-                        contact: '555-234-5678',
-                        description: 'Cozy café serving specialty coffees and breakfast all day.'
-                    },
-                ];
-                setRestaurants(mockData);
-                setFilteredRestaurants(mockData);
+                setRestaurants([]);
+                setFilteredRestaurants([]);
             } finally {
                 setIsLoading(false);
             }
@@ -208,16 +178,13 @@ export default function PublicReservationPage() {
             const closeTime = closeHour * 60 + closeMinute; // Convert to minutes
 
             // Generate slots in 30-minute intervals
-            for (let timeInMinutes = openTime; timeInMinutes <= closeTime; timeInMinutes += 30) {
+            for (let timeInMinutes = openTime; timeInMinutes < closeTime - 30; timeInMinutes += 30) {
                 const hour = Math.floor(timeInMinutes / 60);
                 const minute = timeInMinutes % 60;
 
                 // Format as HH:MM
                 const timeSlot = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-
-                if (timeInMinutes < closeTime) {
-                    timeSlots.push(timeSlot);
-                }
+                timeSlots.push(timeSlot);
             }
         });
 
@@ -236,65 +203,29 @@ export default function PublicReservationPage() {
         });
 
         try {
-            // Use the service function instead of direct axios call
+            // Fetch restaurant opening hours
             const hoursData = await fetchRestaurantHours(restaurant.id);
-
             setOpeningHours(hoursData);
 
-            // Generate time slots for today using the service
-            const currentDate = new Date();
-            const formattedDate = format(currentDate, 'yyyy-MM-dd');
-
-            const timeSlots = await getAvailableTimeSlots(restaurant.id, formattedDate, reservationForm.party_size);
+            // Get available time slots using the service
+            const formattedDate = format(new Date(), 'yyyy-MM-dd');
+            const timeSlots = await getAvailableTimeSlots(
+                restaurant.id,
+                formattedDate,
+                reservationForm.party_size
+            );
             setAvailableTimeSlots(timeSlots);
-
         } catch (error) {
             console.error('Error fetching restaurant hours:', error);
 
-            // For demo, use mock data if service fails
-            const mockHoursData = {
-                Monday: {
-                    isOpen: true,
-                    shifts: [{ name: 'Dinner', open: '18:00', close: '22:00' }]
-                },
-                Tuesday: {
-                    isOpen: true,
-                    shifts: [{ name: 'Dinner', open: '18:00', close: '22:00' }]
-                },
-                Wednesday: {
-                    isOpen: true,
-                    shifts: [{ name: 'Dinner', open: '18:00', close: '22:00' }]
-                },
-                Thursday: {
-                    isOpen: true,
-                    shifts: [{ name: 'Dinner', open: '18:00', close: '22:00' }]
-                },
-                Friday: {
-                    isOpen: true,
-                    shifts: [
-                        { name: 'Lunch', open: '12:00', close: '15:00' },
-                        { name: 'Dinner', open: '18:00', close: '23:00' }
-                    ]
-                },
-                Saturday: {
-                    isOpen: true,
-                    shifts: [
-                        { name: 'Lunch', open: '12:00', close: '15:00' },
-                        { name: 'Dinner', open: '18:00', close: '23:00' }
-                    ]
-                },
-                Sunday: {
-                    isOpen: true,
-                    shifts: [{ name: 'Brunch', open: '10:00', close: '16:00' }]
-                }
-            };
-
-            setOpeningHours(mockHoursData);
-
-            // Generate time slots using local function as fallback
-            const timeSlots = generateTimeSlots(new Date(), mockHoursData);
-            setAvailableTimeSlots(timeSlots);
-
+            // Fallback to local generation if service fails
+            if (openingHours) {
+                const localTimeSlots = generateTimeSlots(new Date(), openingHours);
+                setAvailableTimeSlots(localTimeSlots);
+            } else {
+                setOpeningHours(null);
+                setAvailableTimeSlots([]);
+            }
         } finally {
             setIsHoursLoading(false);
             setIsDialogOpen(true);
@@ -370,7 +301,7 @@ export default function PublicReservationPage() {
             const formattedDate = format(reservationForm.date, 'yyyy-MM-dd');
 
             // Use the service function for creating reservation
-            await createReservation({
+            const reservationData: ReservationCreate = {
                 restaurant_id: reservationForm.restaurant_id,
                 customer_name: reservationForm.customer_name,
                 customer_phone: reservationForm.customer_phone,
@@ -379,7 +310,8 @@ export default function PublicReservationPage() {
                 reservation_time: reservationForm.time,
                 party_size: reservationForm.party_size,
                 special_requests: reservationForm.special_requests
-            });
+            };
+            await createReservation(reservationData);
 
             setMessage({
                 type: 'success',
@@ -402,7 +334,11 @@ export default function PublicReservationPage() {
             }, 2000);
 
         } catch (error) {
-            // Error handling code...
+            console.error('Error creating reservation:', error);
+            setMessage({
+                type: 'error',
+                text: 'Failed to create reservation. Please try again.',
+            });
         } finally {
             setIsSubmitting(false);
         }
@@ -490,7 +426,7 @@ export default function PublicReservationPage() {
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-r from-blue-100 to-indigo-100">
-                                        <span className="text-xl font-semibold text-primary">{restaurant.name.charAt(0)}</span>
+                                        <span className="text-3xl font-semibold text-primary">{restaurant.name.charAt(0)}</span>
                                     </div>
                                 )}
                                 <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs">
@@ -711,9 +647,9 @@ export default function PublicReservationPage() {
                                             +
                                         </Button>
                                         <span className="ml-2 flex items-center text-sm text-muted-foreground">
-            <Users className="mr-1 h-3 w-3" />
+                                            <Users className="mr-1 h-3 w-3" />
                                             {reservationForm.party_size === 1 ? "person" : "people"}
-        </span>
+                                        </span>
                                     </div>
                                 </div>
 

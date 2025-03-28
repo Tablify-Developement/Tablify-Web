@@ -79,14 +79,26 @@ export const RestaurantController = {
         }
     },
 
-    // Get all restaurants (optional, for future use)
-    getRestaurants: async (req: Request, res: Response): Promise<void> => {
+
+
+    // Get all restaurants with optional filtering
+    getAllRestaurants: async (req: Request, res: Response): Promise<void> => {
         try {
-            const restaurants = await RestaurantModel.getRestaurants();
+            const { status, type, search } = req.query;
+
+            const restaurants = await RestaurantModel.getAllRestaurants({
+                status: status as 'pending' | 'approved' | 'rejected' | undefined,
+                type: type as string | undefined,
+                search: search as string | undefined
+            });
+
             res.status(200).json(restaurants);
         } catch (error: any) {
             logger.error(`Error fetching restaurants: ${error.message}`);
-            res.status(500).json({ error: 'An error occurred while fetching restaurants' });
+            res.status(500).json({
+                error: 'An error occurred while fetching restaurants',
+                details: error.message
+            });
         }
     },
 
