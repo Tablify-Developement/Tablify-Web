@@ -4,6 +4,7 @@ import { logger } from './utils/logger';
 import dotenv from 'dotenv';
 import testRoutes from './routes/test';
 import restaurantRoutes from './routes/restaurantRoutes';
+import utilisateurRoutes from "./routes/utilisateurRoutes";
 
 
 // Load environment variables
@@ -22,7 +23,7 @@ app.use(express.json());
 // Routes
 app.use('/services', testRoutes);
 app.use('/api', testRoutes);
-
+app.use('/api/users', utilisateurRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 
 // Health check endpoint
