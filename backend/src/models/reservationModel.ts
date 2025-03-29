@@ -1,5 +1,4 @@
-// backend/src/models/reservationModel.ts
-import { supabase } from '../config/supabase';
+import db from '../config/database';
 import { logger } from '../utils/logger';
 
 export const ReservationModel = {
@@ -21,29 +20,26 @@ export const ReservationModel = {
             const endTime = this.calculateEndTime(reservation_time, 90);
 
             // Insert the reservation
-            const { data, error } = await supabase
-                .from('restaurant_reservations')
-                .insert([
-                    {
-                        restaurant_id,
-                        table_id,
-                        customer_name,
-                        customer_email,
-                        customer_phone,
-                        party_size,
-                        reservation_date,
-                        reservation_time,
-                        end_time: endTime,
-                        special_requests,
-                        status
-                    }
-                ])
-                .select();
+            const query = `
+                INSERT INTO restaurant_reservations(
+                    restaurant_id, table_id, customer_name, customer_email, 
+                    customer_phone, party_size, reservation_date, reservation_time, 
+                    end_time, special_requests, status
+                )
+                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING *
+            `;
 
-            if (error) throw error;
+            const values = [
+                restaurant_id, table_id, customer_name, customer_email,
+                customer_phone, party_size, reservation_date, reservation_time,
+                endTime, special_requests, status
+            ];
+
+            const result = await db.query(query, values);
 
             logger.success('Reservation created successfully.');
-            return data[0];
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error creating reservation: ${error.message}`);
             throw error;
@@ -64,24 +60,24 @@ export const ReservationModel = {
     // Get all reservations for a restaurant
     async getReservations(restaurantId: number, date?: string) {
         try {
-            let query = supabase
-                .from('restaurant_reservations')
-                .select('*')
-                .eq('restaurant_id', restaurantId)
-                .order('reservation_date', { ascending: true })
-                .order('reservation_time', { ascending: true });
+            let query = `
+                SELECT * FROM restaurant_reservations
+                WHERE restaurant_id = $1
+            `;
+            const values = [restaurantId];
 
             // Filter by date if provided
             if (date) {
-                query = query.eq('reservation_date', date);
+                query += ` AND reservation_date = $2`;
+                values.push(date as any);
             }
 
-            const { data, error } = await query;
+            query += ` ORDER BY reservation_date ASC, reservation_time ASC`;
 
-            if (error) throw error;
+            const result = await db.query(query, values);
 
             logger.success('Reservations fetched successfully.');
-            return data;
+            return result.rows;
         } catch (error: any) {
             logger.error(`Error fetching reservations: ${error.message}`);
             throw error;
@@ -100,22 +96,23 @@ export const ReservationModel = {
             const requestedEndMins = this.timeToMinutes(endTime);
 
             // Get all reservations for this restaurant on this date
-            const { data, error } = await supabase
-                .from('restaurant_reservations')
-                .select('table_id, reservation_time, end_time')
-                .eq('restaurant_id', restaurantId)
-                .eq('reservation_date', date)
-                .not('status', 'eq', 'cancelled')
-                .not('table_id', 'is', null);
+            const query = `
+                SELECT table_id, reservation_time, end_time 
+                FROM restaurant_reservations
+                WHERE restaurant_id = $1 
+                  AND reservation_date = $2
+                  AND status != 'cancelled'
+                  AND table_id IS NOT NULL
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [restaurantId, date]);
 
-            if (!data || data.length === 0) {
+            if (result.rows.length === 0) {
                 return []; // No reservations, so no tables are reserved
             }
 
             // Find tables that overlap with the requested time window
-            const reservedTableIds = data
+            const reservedTableIds = result.rows
                 .filter(reservation => {
                     // Skip if no table ID
                     if (!reservation.table_id) return false;
@@ -149,14 +146,14 @@ export const ReservationModel = {
     ) {
         try {
             // Get all tables for the restaurant
-            const { data: tables, error: tablesError } = await supabase
-                .from('restaurant_tables')
-                .select('*')
-                .eq('restaurant_id', restaurantId);
+            const tablesQuery = `
+                SELECT * FROM restaurant_tables
+                WHERE restaurant_id = $1
+            `;
 
-            if (tablesError) throw tablesError;
+            const tablesResult = await db.query(tablesQuery, [restaurantId]);
 
-            if (!tables || tables.length === 0) {
+            if (tablesResult.rows.length === 0) {
                 return []; // No tables available
             }
 
@@ -164,7 +161,7 @@ export const ReservationModel = {
             const reservedTableIds = await this.getReservedTablesForTime(restaurantId, date, time);
 
             // Filter available tables by capacity and reservation status
-            const availableTables = tables
+            const availableTables = tablesResult.rows
                 .filter(table => {
                     // Skip if table is already reserved
                     if (reservedTableIds.includes(table.id)) return false;
@@ -195,16 +192,19 @@ export const ReservationModel = {
     // Get a single reservation by ID
     async getReservationById(id: number) {
         try {
-            const { data, error } = await supabase
-                .from('restaurant_reservations')
-                .select('*')
-                .eq('id', id)
-                .single();
+            const query = `
+                SELECT * FROM restaurant_reservations
+                WHERE id = $1
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Reservation not found');
+            }
 
             logger.success('Reservation fetched successfully.');
-            return data;
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error fetching reservation: ${error.message}`);
             throw error;
@@ -219,16 +219,30 @@ export const ReservationModel = {
                 updateData.end_time = this.calculateEndTime(updateData.reservation_time, 90);
             }
 
-            const { data, error } = await supabase
-                .from('restaurant_reservations')
-                .update(updateData)
-                .eq('id', id)
-                .select();
+            // Build dynamic update query based on provided fields
+            const keys = Object.keys(updateData);
+            if (keys.length === 0) {
+                return null;
+            }
 
-            if (error) throw error;
+            const setFields = keys.map((key, index) => `${key} = $${index + 2}`).join(', ');
+            const values = keys.map(key => updateData[key]);
+
+            const query = `
+                UPDATE restaurant_reservations
+                SET ${setFields}
+                WHERE id = $1
+                RETURNING *
+            `;
+
+            const result = await db.query(query, [id, ...values]);
+
+            if (result.rows.length === 0) {
+                return null;
+            }
 
             logger.success('Reservation updated successfully.');
-            return data[0];
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error updating reservation: ${error.message}`);
             throw error;
@@ -238,12 +252,17 @@ export const ReservationModel = {
     // Delete a reservation
     async deleteReservation(id: number) {
         try {
-            const { error } = await supabase
-                .from('restaurant_reservations')
-                .delete()
-                .eq('id', id);
+            const query = `
+                DELETE FROM restaurant_reservations
+                WHERE id = $1
+                RETURNING id
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id]);
+
+            if (result.rows.length === 0) {
+                return false;
+            }
 
             logger.success('Reservation deleted successfully.');
             return true;
@@ -263,72 +282,53 @@ export const ReservationModel = {
             // 1. Get restaurant hours for the day of week
             const dayOfWeek = new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
 
-            const { data: hoursData, error: hoursError } = await supabase
-                .from('restaurant_hours')
-                .select('*')
-                .eq('restaurant_id', restaurantId)
-                .eq('day_of_week', dayOfWeek)
-                .single();
+            const hoursQuery = `
+                SELECT * FROM restaurant_hours
+                WHERE restaurant_id = $1 AND day_of_week = $2
+            `;
 
-            if (hoursError) {
-                if (hoursError.code === 'PGRST116') { // No rows returned
-                    logger.info(`No hours found for restaurant ${restaurantId} on ${dayOfWeek}`);
-                    return [];
-                }
-                logger.error(`Error fetching restaurant hours: ${hoursError.message}`);
-                return [];
-            }
+            const hoursResult = await db.query(hoursQuery, [restaurantId, dayOfWeek]);
 
-            // If restaurant is closed on this day
-            if (!hoursData || !hoursData.is_open) {
+            if (hoursResult.rows.length === 0 || !hoursResult.rows[0].is_open) {
+                logger.info(`No hours found or restaurant is closed for ${restaurantId} on ${dayOfWeek}`);
                 return [];
             }
 
             // 2. Get all shifts for this day
-            const { data: shiftsData, error: shiftsError } = await supabase
-                .from('restaurant_shifts')
-                .select('*')
-                .eq('restaurant_hours_id', hoursData.id);
+            const shiftsQuery = `
+                SELECT * FROM restaurant_shifts
+                WHERE restaurant_hours_id = $1
+            `;
 
-            if (shiftsError) {
-                logger.error(`Error fetching restaurant shifts: ${shiftsError.message}`);
-                return [];
-            }
+            const shiftsResult = await db.query(shiftsQuery, [hoursResult.rows[0].id]);
 
-            if (!shiftsData || shiftsData.length === 0) {
+            if (shiftsResult.rows.length === 0) {
                 logger.info(`No shifts found for restaurant ${restaurantId} on ${dayOfWeek}`);
                 return [];
             }
 
             // 3. Get restaurant tables to calculate capacity
-            const { data: tablesData, error: tablesError } = await supabase
-                .from('restaurant_tables')
-                .select('*')
-                .eq('restaurant_id', restaurantId);
+            const tablesQuery = `
+                SELECT * FROM restaurant_tables
+                WHERE restaurant_id = $1
+            `;
 
-            if (tablesError) {
-                logger.error(`Error fetching restaurant tables: ${tablesError.message}`);
-                return [];
-            }
+            const tablesResult = await db.query(tablesQuery, [restaurantId]);
 
-            // If no tables, return no time slots
-            if (!tablesData || tablesData.length === 0) {
+            if (tablesResult.rows.length === 0) {
                 logger.info(`No tables found for restaurant ${restaurantId}`);
                 return [];
             }
 
             // 4. Get existing reservations for this date
-            const { data: reservationsData, error: reservationsError } = await supabase
-                .from('restaurant_reservations')
-                .select('*')
-                .eq('restaurant_id', restaurantId)
-                .eq('reservation_date', date)
-                .not('status', 'eq', 'cancelled');
+            const reservationsQuery = `
+                SELECT * FROM restaurant_reservations
+                WHERE restaurant_id = $1 
+                  AND reservation_date = $2
+                  AND status != 'cancelled'
+            `;
 
-            if (reservationsError) {
-                logger.error(`Error fetching reservations: ${reservationsError.message}`);
-                return [];
-            }
+            const reservationsResult = await db.query(reservationsQuery, [restaurantId, date]);
 
             // 5. Generate available time slots
             const timeSlots: string[] = [];
@@ -336,7 +336,7 @@ export const ReservationModel = {
             const interval = 30; // 30 minute intervals
 
             // For each shift, generate time slots
-            shiftsData.forEach(shift => {
+            for (const shift of shiftsResult.rows) {
                 const openTime = shift.open_time;
                 const closeTime = shift.close_time;
 
@@ -352,8 +352,8 @@ export const ReservationModel = {
                     const isAvailable = this.checkTimeSlotAvailability(
                         timeSlot,
                         partySize,
-                        tablesData,
-                        reservationsData || [],
+                        tablesResult.rows,
+                        reservationsResult.rows || [],
                         reservationDuration
                     );
 
@@ -361,7 +361,7 @@ export const ReservationModel = {
                         timeSlots.push(timeSlot);
                     }
                 }
-            });
+            }
 
             return timeSlots;
         } catch (error: any) {
@@ -374,21 +374,26 @@ export const ReservationModel = {
     async cancelReservation(id: number, cancellationReason: string = '') {
         try {
             // Update reservation status to 'cancelled'
-            const { data, error } = await supabase
-                .from('restaurant_reservations')
-                .update({
-                    status: 'cancelled',
-                    special_requests: cancellationReason ?
-                        `Cancellation reason: ${cancellationReason}` :
-                        'Cancelled by user'
-                })
-                .eq('id', id)
-                .select();
+            const query = `
+                UPDATE restaurant_reservations
+                SET 
+                    status = 'cancelled',
+                    special_requests = CASE 
+                        WHEN $2 != '' THEN CONCAT('Cancellation reason: ', $2)
+                        ELSE 'Cancelled by user'
+                    END
+                WHERE id = $1
+                RETURNING *
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id, cancellationReason]);
+
+            if (result.rows.length === 0) {
+                return null;
+            }
 
             logger.success('Reservation cancelled successfully.');
-            return data[0];
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error cancelling reservation: ${error.message}`);
             throw error;

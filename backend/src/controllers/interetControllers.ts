@@ -3,7 +3,6 @@ import { InteretModel } from '../models/interetModel';
 import { logger } from '../utils/logger';
 
 export const InteretController = {
-
     createInteret: async (req: Request, res: Response): Promise<void> => {
         const {id_interet, id_utilisateur, nom_interet} = req.body;
 
@@ -24,7 +23,7 @@ export const InteretController = {
                 message: 'Interet created successfully',
                 interet: newInteret,
             });
-        } catch (error) {
+        } catch (error: any) {
             logger.error(`Error creating Interet: ${error.message}`);
             res.status(500).json({error: 'Error creating Interet'});
         }
@@ -47,7 +46,7 @@ export const InteretController = {
             return;
         }
         try {
-            const interet = await InteretModel.getInteretById(id_utilisateur);
+            const interet = await InteretModel.getInteretById(id_interet);
             res.status(200).json(interet);
         } catch (error: any) {
             logger.error(`Error getting Interets by id: ${error.message}`);
@@ -56,13 +55,13 @@ export const InteretController = {
     },
 
     getInteretByName: async (req: Request, res: Response): Promise<void> => {
-        const {id_interet} = req.params;
-        if (!id_interet) {
-            res.status(400).json({error: 'ID interets required'});
+        const {nom_interet} = req.params;
+        if (!nom_interet) {
+            res.status(400).json({error: 'Nom interet required'});
             return;
         }
         try {
-            const interet = await InteretModel.getInteretByName(name_interet);
+            const interet = await InteretModel.getInteretByName(nom_interet);
             res.status(200).json(interet);
         } catch (error: any) {
             logger.error(`Error getting Interets by name: ${error.message}`);
