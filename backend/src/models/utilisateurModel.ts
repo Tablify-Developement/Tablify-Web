@@ -1,4 +1,4 @@
-import { supabase } from '../config/supabase';
+import db from '../config/database';
 import { logger } from '../utils/logger';
 
 // Utilisateurs model
@@ -14,23 +14,17 @@ export const UtilisateurModel = {
         date_naissance: Date
     ) {
         try {
-            const {data, error} = await supabase
-                .from('utilisateurs')
-                .insert([{
-                    nom,
-                    prenom,
-                    mail,
-                    password,  // Hashed password
-                    role,
-                    notification,
-                    langue,
-                    date_naissance
-                }])
-                .select();
+            const query = `
+                INSERT INTO utilisateurs(nom, prenom, mail, password, role, notification, langue, date_naissance)
+                VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+                RETURNING *
+            `;
 
-            if (error) throw error;
+            const values = [nom, prenom, mail, password, role, notification, langue, date_naissance];
+            const result = await db.query(query, values);
+
             logger.success('Utilisateur created');
-            return data[0];
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error creating Utilisateur: ${error.message}`);
             throw error;
@@ -40,21 +34,18 @@ export const UtilisateurModel = {
     // Get user by email for authentication
     async getUserByEmail(mail: string) {
         try {
-            const {data, error} = await supabase
-                .from('utilisateurs')
-                .select('*')
-                .eq('mail', mail)
-                .single();
+            const query = `
+                SELECT * FROM utilisateurs
+                WHERE mail = $1
+            `;
 
-            if (error) {
-                // If no rows returned, return null
-                if (error.code === 'PGRST116') {
-                    return null;
-                }
-                throw error;
+            const result = await db.query(query, [mail]);
+
+            if (result.rows.length === 0) {
+                return null;
             }
 
-            return data;
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error fetching user by email: ${error.message}`);
             throw error;
@@ -63,11 +54,11 @@ export const UtilisateurModel = {
 
     async getAllUtilisateurs() {
         try {
-            const {data, error} = await supabase.from('utilisateurs').select('*');
-            if (error) throw error;
+            const query = `SELECT * FROM utilisateurs`;
+            const result = await db.query(query);
 
             logger.success('Users fetched');
-            return data;
+            return result.rows;
         } catch (error: any) {
             logger.error(`Error fetching Utilisateurs: ${error.message}`);
             throw error;
@@ -76,20 +67,19 @@ export const UtilisateurModel = {
 
     async getUtilisateurbyId(id_utilisateur: string) {
         try {
-            const {data, error} = await supabase
-                .from('utilisateurs')
-                .select('*')
-                .eq('id_utilisateur', id_utilisateur)
-                .single();
+            const query = `
+                SELECT * FROM utilisateurs
+                WHERE id_utilisateur = $1
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id_utilisateur]);
 
-            if (!data) {
+            if (result.rows.length === 0) {
                 throw new Error('Utilisateur not found');
             }
 
             logger.success('User fetched');
-            return data;
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error fetching Utilisateur by id: ${error.message}`);
             throw error;
@@ -98,19 +88,20 @@ export const UtilisateurModel = {
 
     async getUtilisateurByInteret(id_interet: string) {
         try {
-            const {data, error} = await supabase
-                .from('interets')
-                .select('*')
-                .eq('id_interet', id_interet)
-                .single();
+            const query = `
+                SELECT u.* FROM utilisateurs u
+                JOIN interets i ON u.id_utilisateur = i.id_utilisateur
+                WHERE i.id_interet = $1
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id_interet]);
 
-            if (!data) {
+            if (result.rows.length === 0) {
                 throw new Error('Interet not found');
             }
+
             logger.success('User fetched');
-            return data;
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error fetching Utilisateurs by interet: ${error.message}`);
             throw error;
@@ -119,20 +110,30 @@ export const UtilisateurModel = {
 
     async updateUtilisateur(id_utilisateur: string, updateData: any) {
         try {
-            const {data, error} = await supabase
-                .from('utilisateurs')
-                .update(updateData)
-                .eq('id_utilisateur', id_utilisateur)
-                .select();
+            // Build dynamic update query based on provided fields
+            const keys = Object.keys(updateData);
+            if (keys.length === 0) {
+                return null;
+            }
 
-            if (error) throw error;
+            const setFields = keys.map((key, index) => `${key} = $${index + 2}`).join(', ');
+            const values = keys.map(key => updateData[key]);
 
-            if(!data || data.length === 0) {
+            const query = `
+                UPDATE utilisateurs
+                SET ${setFields}
+                WHERE id_utilisateur = $1
+                RETURNING *
+            `;
+
+            const result = await db.query(query, [id_utilisateur, ...values]);
+
+            if (result.rows.length === 0) {
                 return null;
             }
 
             logger.success('Utilisateur updated');
-            return data[0];
+            return result.rows[0];
         } catch (error: any) {
             logger.error(`Error updating Utilisateur: ${error.message}`);
             throw error;
@@ -141,12 +142,17 @@ export const UtilisateurModel = {
 
     async deleteUtilisateur(id_utilisateur: string) {
         try {
-            const {error} = await supabase
-                .from('utilisateurs')
-                .delete()
-                .eq('id_utilisateur', id_utilisateur);
+            const query = `
+                DELETE FROM utilisateurs
+                WHERE id_utilisateur = $1
+                RETURNING id_utilisateur
+            `;
 
-            if (error) throw error;
+            const result = await db.query(query, [id_utilisateur]);
+
+            if (result.rows.length === 0) {
+                return false;
+            }
 
             logger.success('User deleted successfully.');
             return true;
