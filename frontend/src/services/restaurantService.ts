@@ -2,7 +2,7 @@
 import axios from 'axios';
 import {GalleryVerticalEnd} from "lucide-react";
 
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 // Type definitions
 interface Restaurant {
