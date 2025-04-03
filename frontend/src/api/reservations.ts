@@ -8,6 +8,8 @@ export interface Reservation {
   availableSeats: number;
   totalSeats: number;
   status: string;
+  matchScore?: number;
+  commonInterests?: string[];
 }
 
 // Base API URL - this should be configured based on your environment
@@ -58,6 +60,27 @@ export async function joinReservation(reservationId: number, userId: number, sea
     return data;
   } catch (error) {
     console.error('Error joining reservation:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch reservations matched by user interests
+ * @param userId The ID of the user to match reservations for
+ * @returns Promise with an array of reservations sorted by match score
+ */
+export async function getMatchedReservations(userId: number): Promise<Reservation[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reservations/match?userId=${userId}`);
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching matched reservations:', error);
     throw error;
   }
 }

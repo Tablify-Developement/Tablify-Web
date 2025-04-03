@@ -196,6 +196,204 @@ router.post('/test-create', (async (req: Request, res: Response) => {
 }) as RequestHandler);
 
 /**
+ * GET /api/reservations/match
+ * Returns reservations matched by user interests
+ */
+router.get('/match', (async (req: Request<{}, any, any, {userId?: string}>, res: Response) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+    
+    logger.info(`Finding matched reservations for user ${userId}`);
+    
+    // Étape 1: Récupérer les centres d'intérêt de l'utilisateur
+    const { data: userInterests, error: interestsError } = await supabase
+      .from('centres_interets')
+      .select('nom_interet')
+      .eq('id_utilisateur', userId);
+    
+    if (interestsError) {
+      logger.error(`Error fetching user interests: ${interestsError.message}`);
+      throw new Error(`Error fetching user interests: ${interestsError.message}`);
+    }
+    
+    // Si l'utilisateur n'a pas de centres d'intérêt, retourner les réservations ouvertes normales
+    if (!userInterests || userInterests.length === 0) {
+      logger.info(`No interests found for user ${userId}, returning regular open reservations`);
+      
+      // Récupérer les réservations ouvertes
+      const { data: reservationsData, error } = await supabase
+        .from('reservations')
+        .select(`
+          id, 
+          date, 
+          time, 
+          available_seats, 
+          total_seats,
+          status,
+          id_restaurant,
+          id_createur
+        `)
+        .eq('status', 'open')
+        .gte('date', new Date().toISOString().split('T')[0])
+        .gt('available_seats', 0);
+      
+      if (error) {
+        logger.error(`Supabase error fetching reservations: ${error.message}`);
+        throw error;
+      }
+      
+      // Même formatage que pour /open
+      const restaurantIds = reservationsData?.map(r => r.id_restaurant) || [];
+      const { data: restaurantsData, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('id, restaurant_name, address')
+        .in('id', restaurantIds);
+        
+      if (restaurantsError) {
+        logger.error(`Supabase error fetching restaurants: ${restaurantsError.message}`);
+        throw restaurantsError;
+      }
+      
+      const formattedReservations = reservationsData?.map(reservation => {
+        const restaurant = restaurantsData?.find(r => r.id === reservation.id_restaurant);
+        return {
+          id: reservation.id,
+          restaurantName: restaurant ? restaurant.restaurant_name : 'Restaurant inconnu',
+          location: restaurant ? restaurant.address : 'Adresse inconnue',
+          date: reservation.date,
+          time: reservation.time,
+          availableSeats: reservation.available_seats,
+          totalSeats: reservation.total_seats,
+          status: reservation.status,
+          matchScore: 0 // Score de match à 0 car pas de centres d'intérêt
+        };
+      }) || [];
+      
+      logger.success(`Retrieved ${formattedReservations.length} reservations with default sorting for user ${userId}`);
+      return res.status(200).json(formattedReservations);
+    }
+    
+    // Extraire les noms des centres d'intérêt
+    const userInterestNames = userInterests.map(interest => interest.nom_interet);
+    logger.info(`User ${userId} has interests: ${userInterestNames.join(', ')}`);
+    
+    // Étape 2: Récupérer les réservations ouvertes
+    const { data: reservationsData, error: reservationsError } = await supabase
+      .from('reservations')
+      .select(`
+        id, 
+        date, 
+        time, 
+        available_seats, 
+        total_seats,
+        status,
+        id_restaurant,
+        id_createur
+      `)
+      .eq('status', 'open')
+      .gte('date', new Date().toISOString().split('T')[0])
+      .gt('available_seats', 0);
+    
+    if (reservationsError) {
+      logger.error(`Error fetching open reservations: ${reservationsError.message}`);
+      throw new Error(`Error fetching open reservations: ${reservationsError.message}`);
+    }
+    
+    if (!reservationsData || reservationsData.length === 0) {
+      logger.info(`No open reservations found for matching`);
+      return res.status(200).json([]);
+    }
+    
+    // Étape 3: Récupérer les informations des restaurants pour les réservations
+    const restaurantIds = reservationsData.map(r => r.id_restaurant);
+    const { data: restaurantsData, error: restaurantsError } = await supabase
+      .from('restaurants')
+      .select('id, restaurant_name, address, type')
+      .in('id', restaurantIds);
+      
+    if (restaurantsError) {
+      logger.error(`Error fetching restaurants: ${restaurantsError.message}`);
+      throw new Error(`Error fetching restaurants: ${restaurantsError.message}`);
+    }
+    
+    // Étape 4: Récupérer les créateurs des réservations
+    const creatorIds = reservationsData.map(r => r.id_createur);
+    const { data: creatorsData, error: creatorsError } = await supabase
+      .from('utilisateur')
+      .select('id_utilisateur')
+      .in('id_utilisateur', creatorIds);
+      
+    if (creatorsError) {
+      logger.error(`Error fetching reservation creators: ${creatorsError.message}`);
+      throw new Error(`Error fetching reservation creators: ${creatorsError.message}`);
+    }
+    
+    // Étape 5: Récupérer les centres d'intérêt des créateurs des réservations
+    const { data: creatorInterests, error: creatorInterestsError } = await supabase
+      .from('centres_interets')
+      .select('id_utilisateur, nom_interet')
+      .in('id_utilisateur', creatorIds);
+      
+    if (creatorInterestsError) {
+      logger.error(`Error fetching creator interests: ${creatorInterestsError.message}`);
+      throw new Error(`Error fetching creator interests: ${creatorInterestsError.message}`);
+    }
+    
+    // Étape 6: Calculer les scores de matching et formater les résultats
+    const matchedReservations = reservationsData.map(reservation => {
+      const restaurant = restaurantsData?.find(r => r.id === reservation.id_restaurant);
+      
+      // Trouver les centres d'intérêt du créateur de cette réservation
+      const creatorInterestsList = creatorInterests
+        ?.filter(ci => ci.id_utilisateur === reservation.id_createur)
+        ?.map(ci => ci.nom_interet) || [];
+      
+      // Calculer le score de matching (nombre de centres d'intérêt communs)
+      const commonInterests = userInterestNames.filter(interest => 
+        creatorInterestsList.includes(interest)
+      );
+      
+      let matchScore = commonInterests.length;
+      
+      // Ajouter des points supplémentaires si le type de restaurant correspond à un centre d'intérêt
+      const restaurantType = restaurant?.type || '';
+      if (restaurantType && userInterestNames.includes(restaurantType.toLowerCase())) {
+        matchScore += 1;
+      }
+      
+      return {
+        id: reservation.id,
+        restaurantName: restaurant ? restaurant.restaurant_name : 'Restaurant inconnu',
+        location: restaurant ? restaurant.address : 'Adresse inconnue',
+        date: reservation.date,
+        time: reservation.time,
+        availableSeats: reservation.available_seats,
+        totalSeats: reservation.total_seats,
+        status: reservation.status,
+        matchScore: matchScore,
+        commonInterests: commonInterests
+      };
+    });
+    
+    // Étape 7: Trier les réservations par score de matching (descendant)
+    const sortedReservations = matchedReservations.sort((a, b) => b.matchScore - a.matchScore);
+    
+    logger.success(`Retrieved and matched ${sortedReservations.length} reservations for user ${userId}`);
+    res.status(200).json(sortedReservations);
+  } catch (error: unknown) {
+    logger.error(`Failed to match reservations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    res.status(500).json({ 
+      message: 'Failed to match reservations',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}) as RequestHandler);
+
+/**
  * GET /api/reservations/user/:userId
  * Returns all reservations for a specific user
  */
@@ -488,6 +686,6 @@ router.post('/', (async (req: Request<{}, any, ReservationBody>, res: Response) 
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}) as RequestHandler<{}, any, ReservationBody>);
+}) as RequestHandler);
 
 export default router;
