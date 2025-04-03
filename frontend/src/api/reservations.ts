@@ -11,7 +11,7 @@ export interface Reservation {
 }
 
 // Base API URL - this should be configured based on your environment
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 /**
  * Fetch all open reservations
@@ -29,6 +29,35 @@ export async function getOpenReservations(): Promise<Reservation[]> {
     return data;
   } catch (error) {
     console.error('Error fetching open reservations:', error);
+    throw error;
+  }
+}
+
+/**
+ * Join an existing reservation
+ * @param reservationId The ID of the reservation to join
+ * @param userId The ID of the user joining the reservation
+ * @param seats Number of seats to reserve
+ * @returns Promise with the updated reservation data
+ */
+export async function joinReservation(reservationId: number, userId: number, seats: number): Promise<any> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/join`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId, seats }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error joining reservation:', error);
     throw error;
   }
 }

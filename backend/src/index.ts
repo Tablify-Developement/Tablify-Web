@@ -10,7 +10,7 @@ dotenv.config();
 
 // Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3002;
 
 // Enable CORS
 app.use(cors());
@@ -31,6 +31,16 @@ app.get('/', (req: Request, res: Response) => {
 logger.logLogo();
 
 // Start the server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     logger.connection(`Server is running on http://localhost:${PORT}`);
+});
+
+// Handle server errors
+server.on('error', (error: any) => {
+    if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${PORT} is already in use. Try a different port.`);
+        process.exit(1);
+    } else {
+        logger.error(`Server error: ${error.message}`);
+    }
 });
