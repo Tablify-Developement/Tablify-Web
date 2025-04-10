@@ -78,11 +78,22 @@ export const getAvailableTablesForTime = async (
 // Get all reservations for a restaurant
 export const getRestaurantReservations = async (restaurantId: number): Promise<Reservation[]> => {
     try {
+        console.log('Fetching reservations for restaurant ID:', restaurantId);
         const response = await axios.get(`${API_BASE_URL}/reservations/restaurant/${restaurantId}`);
+
+        console.log('Response from server:', response.data);
+
+        // Ensure the response data is an array
+        if (!Array.isArray(response.data)) {
+            console.warn('Unexpected response format:', response.data);
+            return [];
+        }
+
         return response.data;
     } catch (error) {
         console.error("Error fetching restaurant reservations:", error);
-        throw error;
+        // You might want to throw the error or return an empty array
+        return [];
     }
 };
 

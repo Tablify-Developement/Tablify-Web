@@ -137,34 +137,50 @@ export default function ReservationsPage() {
 
     // Fetches reservations and tables
     const loadData = async () => {
-        if (!restaurantId) return;
+        if (!restaurantId) {
+            console.warn('No restaurant ID selected');
+            return;
+        }
 
         setIsLoading(true);
         try {
-            // Fetch reservations for this restaurant
+            console.log('Fetching reservations for restaurant ID:', restaurantId);
+
+            // Fetch reservations
             const reservationsData = await getRestaurantReservations(restaurantId);
+            console.log('Raw reservations data:', reservationsData);
 
-            const transformedReservations = reservationsData.map(res => ({
-                id: res.id,
-                restaurant_id: res.restaurant_id,
-                customer_name: res.customer_name,
-                customer_phone: res.contact, // Map from API's 'contact' to our interface's 'customer_phone'
-                reservation_date: res.date, // Map from API's 'date' to our interface's 'reservation_date'
-                reservation_time: res.time, // Map from API's 'time' to our interface's 'reservation_time'
-                party_size: res.guests, // Map from API's 'guests' to our interface's 'party_size'
-                table_id: res.table_id,
-                table_number: res.table_id.toString(), // Assuming table_number is not directly returned
-                status: res.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                special_requests: res.notes || '' // Map from API's 'notes' to 'special_requests'
-            }));
+            if (!reservationsData || reservationsData.length === 0) {
+                console.warn('No reservations found for this restaurant');
+            }
 
+            const transformedReservations = reservationsData.map(res => {
+                console.log('Processing reservation:', res);
+                return {
+                    id: res.id,
+                    restaurant_id: res.restaurant_id,
+                    customer_name: res.customer_name,
+                    customer_phone: res.contact,
+                    reservation_date: res.date,
+                    reservation_time: res.time,
+                    party_size: res.guests,
+                    table_id: res.table_id,
+                    table_number: res.table_id.toString(),
+                    status: res.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
+                    special_requests: res.notes || ''
+                };
+            });
+
+            console.log('Transformed reservations:', transformedReservations);
             setReservations(transformedReservations);
 
-            // Fetch tables for the restaurant
+            // Fetch tables
             const tablesData = await fetchRestaurantTables(restaurantId);
+            console.log('Tables data:', tablesData);
             setTables(tablesData);
         } catch (error) {
-            console.error('Error loading data:', error);
+            console.error('Comprehensive error loading data:', error);
+            // Optionally set an error state to show user-friendly message
         } finally {
             setIsLoading(false);
         }

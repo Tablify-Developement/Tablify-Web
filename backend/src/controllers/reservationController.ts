@@ -139,21 +139,19 @@ export const ReservationController = {
     // Get all reservations for a restaurant
     getReservations: async (req: Request, res: Response): Promise<void> => {
         const { restaurantId } = req.params;
-        const { date } = req.query;
 
-        if (!restaurantId) {
-            res.status(400).json({ error: 'Restaurant ID is required' });
-            return;
-        }
+        console.log('Received request for restaurant reservations:', restaurantId);
 
         try {
             const reservations = await ReservationModel.getReservations(
-                parseInt(restaurantId),
-                date as string | undefined
+                parseInt(restaurantId)
             );
+
+            console.log('Fetched reservations:', reservations);
+
             res.status(200).json(reservations);
         } catch (error: any) {
-            logger.error(`Error fetching reservations: ${error.message}`);
+            console.error(`Error fetching reservations: ${error.message}`);
             res.status(500).json({
                 error: 'An error occurred while fetching reservations',
                 details: error.message
