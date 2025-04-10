@@ -1,11 +1,11 @@
 import express from 'express';
-import { InteretControllers} from "../controllers/interetController";
+import { InteretController } from "../controllers/interetControllers";
 
 const router = express.Router();
 
-router.post('/', InteretControllers.createInteret);
-router.get('/', InteretControllers.getInteret);
-router.get('/:id', InteretControllers.getInteretById);
-router.get('/:nom_interet', InteretControllers.getInteretByName);
+router.post('/', InteretController.createInteret);
+router.get('/', InteretController.getAllInterets);
+router.get('/:id_interet', InteretController.getInteretById);
+router.get('/name/:nom_interet', InteretController.getInteretByName);
 
 export default router;
