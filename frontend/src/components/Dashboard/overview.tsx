@@ -1,42 +1,23 @@
+// ✅ FINALIZED OVERVIEW PAGE WITH REAL RESERVATION DATA
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
+    Card, CardContent, CardDescription, CardHeader, CardTitle
 } from '@/components/ui/card';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from '@/components/ui/table';
 import {
-    Users,
-    TableProperties,
-    CalendarClock,
-    DollarSign,
-    Activity
+    Users, TableProperties, CalendarClock, DollarSign, Activity
 } from 'lucide-react';
 import { fetchRestaurantTables } from '@/services/restaurantService';
+import { getRestaurantReservations } from '@/services/reservationService';
 import { useRestaurant } from '@/context/restaurant-context';
+import { format, isToday, parseISO } from 'date-fns';
 
 export default function DashboardPage() {
-    // Define the reservation type
-    type Reservation = {
-        id: number;
-        name: string;
-        date: string;
-        time: string;
-        guests: number;
-        status: string;
-    };
-
     const { selectedRestaurant } = useRestaurant();
     const restaurantId = selectedRestaurant?.id || 0;
 
@@ -45,7 +26,8 @@ export default function DashboardPage() {
         availableTables: 0,
         totalCapacity: 0,
         totalReservations: 0,
-        recentReservations: [] as Reservation[]
+        recentReservations: [] as any[],
+        todayReservations: [] as any[]
     });
     const [isLoading, setIsLoading] = useState(true);
 
@@ -58,29 +40,36 @@ export default function DashboardPage() {
 
             setIsLoading(true);
             try {
-                // Fetch tables to calculate metrics
-                const tables = await fetchRestaurantTables(restaurantId);
+                const [tables, reservations] = await Promise.all([
+                    fetchRestaurantTables(restaurantId),
+                    getRestaurantReservations(restaurantId)
+                ]);
 
-                // Calculate metrics from tables
                 const totalTables = tables.length;
                 const availableTables = tables.filter(table => table.status === 'available').length;
                 const totalCapacity = tables.reduce((sum, table) => sum + Number(table.capacity), 0);
 
-                // Mock data for reservations (to be replaced with actual API call)
-                const mockReservations = [
-                    { id: 1, name: 'John Doe', date: '2025-03-27', time: '18:30', guests: 4, status: 'confirmed' },
-                    { id: 2, name: 'Jane Smith', date: '2025-03-27', time: '19:00', guests: 2, status: 'confirmed' },
-                    { id: 3, name: 'Robert Johnson', date: '2025-03-27', time: '20:15', guests: 6, status: 'pending' },
-                    { id: 4, name: 'Emma Williams', date: '2025-03-28', time: '18:00', guests: 3, status: 'confirmed' },
-                    { id: 5, name: 'Michael Brown', date: '2025-03-28', time: '19:30', guests: 5, status: 'cancelled' },
-                ];
+                const today = new Date();
+
+                const todayReservations = reservations.filter((res) =>
+                    isToday(parseISO(res.date))
+                );
+
+                todayReservations.sort((a, b) => a.time.localeCompare(b.time));
+
+                const recentReservations = reservations
+                    .sort((a, b) =>
+                        new Date(b.date + 'T' + b.time).getTime() -
+                        new Date(a.date + 'T' + a.time).getTime()
+                    ).slice(0, 5);
 
                 setRestaurantData({
                     totalTables,
                     availableTables,
                     totalCapacity,
-                    totalReservations: mockReservations.length,
-                    recentReservations: mockReservations
+                    totalReservations: todayReservations.length,
+                    recentReservations,
+                    todayReservations
                 });
             } catch (error) {
                 console.error('Error fetching dashboard data:', error);
@@ -137,9 +126,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{restaurantData.totalCapacity}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Total guests can be accommodated
-                        </p>
+                        <p className="text-xs text-muted-foreground">Total guests can be accommodated</p>
                     </CardContent>
                 </Card>
 
@@ -149,9 +136,9 @@ export default function DashboardPage() {
                         <CalendarClock className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{restaurantData.totalReservations}</div>
+                        <div className="text-2xl font-bold">{restaurantData.todayReservations.length}</div>
                         <p className="text-xs text-muted-foreground">
-                            {restaurantData.recentReservations.filter(r => r.status === 'confirmed').length} confirmed
+                            {restaurantData.todayReservations.filter(r => r.status === 'confirmed').length} confirmed
                         </p>
                     </CardContent>
                 </Card>
@@ -162,10 +149,10 @@ export default function DashboardPage() {
                         <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">$1,250</div>
-                        <p className="text-xs text-muted-foreground">
-                            Based on today's reservations
-                        </p>
+                        <div className="text-2xl font-bold">
+                            ${(restaurantData.todayReservations.length * 25).toFixed(2)}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Based on today's reservations</p>
                     </CardContent>
                 </Card>
             </div>
@@ -180,50 +167,21 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            <div className="flex items-center">
-                                <Activity className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <div className="ml-2 space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        New reservation for 4 guests
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Today at 7:30 PM
-                                    </p>
+                            {restaurantData.recentReservations.map((res) => (
+                                <div className="flex items-center" key={res.id}>
+                                    <Activity className="mr-2 h-4 w-4 text-muted-foreground" />
+                                    <div className="ml-2 space-y-1">
+                                        <p className="text-sm font-medium leading-none">
+                                            {res.status === 'cancelled'
+                                                ? 'Reservation canceled'
+                                                : `New reservation for ${res.guests} guests`}
+                                        </p>
+                                        <p className="text-sm text-muted-foreground">
+                                            {format(parseISO(res.date), 'MMM d')} at {res.time}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex items-center">
-                                <Activity className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <div className="ml-2 space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Table 7 status changed to "Occupied"
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Today at 6:15 PM
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center">
-                                <Activity className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <div className="ml-2 space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        Reservation canceled
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Today at 5:45 PM
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="flex items-center">
-                                <Activity className="mr-2 h-4 w-4 text-muted-foreground" />
-                                <div className="ml-2 space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        New reservation for 2 guests
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        Today at 4:30 PM
-                                    </p>
-                                </div>
-                            </div>
+                            ))}
                         </div>
                     </CardContent>
                 </Card>
@@ -246,21 +204,21 @@ export default function DashboardPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {restaurantData.recentReservations.slice(0, 5).map((reservation) => (
+                                {restaurantData.todayReservations.map((reservation) => (
                                     <TableRow key={reservation.id}>
-                                        <TableCell className="font-medium">{reservation.name}</TableCell>
+                                        <TableCell className="font-medium">{reservation.customer_name}</TableCell>
                                         <TableCell>{reservation.time}</TableCell>
                                         <TableCell>{reservation.guests}</TableCell>
                                         <TableCell>
-                                            <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                                                reservation.status === 'confirmed'
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : reservation.status === 'pending'
-                                                        ? 'bg-yellow-100 text-yellow-800'
-                                                        : 'bg-red-100 text-red-800'
-                                            }`}>
-                                                {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
-                                            </span>
+                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                          reservation.status === 'confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : reservation.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                      }`}>
+                        {reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
+                      </span>
                                         </TableCell>
                                     </TableRow>
                                 ))}

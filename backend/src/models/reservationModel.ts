@@ -13,7 +13,7 @@ export const ReservationModel = {
         reservation_date: string,
         reservation_time: string,
         special_requests: string = "",
-        status: string = "confirmed"
+        status: string = "pending"
     ) {
         try {
             // Determine end time (assuming 90 minutes per reservation)

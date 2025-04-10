@@ -116,9 +116,9 @@ export default function ReservationsPage() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]); // Today by default
+    const [dateFilter, setDateFilter] = useState(''); // Empty means no date filtering
     const [statusFilter, setStatusFilter] = useState<string>('all');
-    const [currentTab, setCurrentTab] = useState('today');
+    const [currentTab, setCurrentTab] = useState('all'); // Changed from 'today' to 'all'
     const [currentPage, setCurrentPage] = useState(1);
     const reservationsPerPage = 8;
 
@@ -133,56 +133,95 @@ export default function ReservationsPage() {
         special_requests: ''
     };
 
+    function normalizeDate(dateString: string) {
+        // Attempt to parse with the JS Date constructor
+        // If invalid, fallback to the raw string
+        const parsed = new Date(dateString);
+        if (isNaN(parsed.getTime())) return dateString;
+        return parsed.toISOString().split('T')[0];
+    }
+
+
     const [newReservation, setNewReservation] = useState(emptyReservation);
+
+    // Debug the filtered reservations
+    useEffect(() => {
+        console.log('🔍 FILTERED RESERVATIONS:', filteredReservations);
+    }, [filteredReservations]);
 
     // Fetches reservations and tables
     const loadData = async () => {
+        console.log('🔄 Starting loadData function');
+        console.log('🏪 Current restaurant ID:', restaurantId);
+
         if (!restaurantId) {
-            console.warn('No restaurant ID selected');
+            console.warn('⚠️ No restaurant ID selected');
+            setReservations([]);
+            setFilteredReservations([]);
+            setIsLoading(false);
             return;
         }
 
         setIsLoading(true);
         try {
-            console.log('Fetching reservations for restaurant ID:', restaurantId);
+            console.log('🔍 Fetching reservations for restaurant ID:', restaurantId);
 
             // Fetch reservations
             const reservationsData = await getRestaurantReservations(restaurantId);
-            console.log('Raw reservations data:', reservationsData);
+            console.log('📦 Raw reservations data:', reservationsData);
 
             if (!reservationsData || reservationsData.length === 0) {
-                console.warn('No reservations found for this restaurant');
+                console.warn('⚠️ No reservations found for this restaurant');
+                setReservations([]);
+                setFilteredReservations([]);
+            } else {
+                console.log(`✅ Successfully received ${reservationsData.length} reservations`);
+
+                // Map the data to match our Reservation interface
+                const transformedReservations = reservationsData.map(res => {
+                    return {
+                        id: res.id,
+                        restaurant_id: res.restaurant_id,
+                        customer_name: res.customer_name,
+                        customer_phone: res.contact || '',
+                        reservation_date: res.date,
+                        reservation_time: res.time,
+                        party_size: res.guests,
+                        table_id: res.table_id || 0,
+                        table_number: res.table_id ? res.table_id.toString() : 'N/A',
+                        status: (res.status || 'confirmed') as 'confirmed' | 'pending' | 'cancelled' | 'completed',
+                        special_requests: res.notes || ''
+                    };
+                });
+
+                console.log('Transformed reservations:', transformedReservations);
+
+                // Set the reservations
+                setReservations(transformedReservations);
+
+                // Initially set the filtered reservations to all reservations
+                setFilteredReservations(transformedReservations);
             }
 
-            const transformedReservations = reservationsData.map(res => {
-                console.log('Processing reservation:', res);
-                return {
-                    id: res.id,
-                    restaurant_id: res.restaurant_id,
-                    customer_name: res.customer_name,
-                    customer_phone: res.contact,
-                    reservation_date: res.date,
-                    reservation_time: res.time,
-                    party_size: res.guests,
-                    table_id: res.table_id,
-                    table_number: res.table_id.toString(),
-                    status: res.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                    special_requests: res.notes || ''
-                };
-            });
-
-            console.log('Transformed reservations:', transformedReservations);
-            setReservations(transformedReservations);
-
             // Fetch tables
-            const tablesData = await fetchRestaurantTables(restaurantId);
-            console.log('Tables data:', tablesData);
-            setTables(tablesData);
+            try {
+                console.log('🪑 Fetching tables for restaurant ID:', restaurantId);
+                const tablesData = await fetchRestaurantTables(restaurantId);
+                console.log('📦 Tables data:', tablesData);
+                setTables(tablesData || []);
+            } catch (tablesError) {
+                console.error('❌ Error fetching tables:', tablesError);
+                setTables([]);
+            }
         } catch (error) {
-            console.error('Comprehensive error loading data:', error);
-            // Optionally set an error state to show user-friendly message
+            console.error('❌ Comprehensive error loading data:', error);
+            // Show empty state
+            setReservations([]);
+            setFilteredReservations([]);
+            setTables([]);
         } finally {
             setIsLoading(false);
+            console.log('✅ loadData function completed');
         }
     };
 
@@ -193,38 +232,49 @@ export default function ReservationsPage() {
 
     // Apply the filters when any filter changes
     useEffect(() => {
-        // Get the current date in YYYY-MM-DD format
-        const today = new Date().toISOString().split('T')[0];
+        // 1) Convert current date to 'YYYY-MM-DD'
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        // Filter reservations
-        const filtered = reservations.filter(reservation => {
-            // Filter based on the search query
-            const matchesSearch = searchQuery === '' ||
+        const filtered = reservations.filter((reservation) => {
+            // 2) Normalize the reservation date
+            const reservationDateStr = normalizeDate(reservation.reservation_date);
+
+            // 3) Apply search filter
+            const matchesSearch =
+                searchQuery === '' ||
                 reservation.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 reservation.customer_phone.includes(searchQuery);
 
-            // Filter based on the date
-            const matchesDate = dateFilter === '' || reservation.reservation_date === dateFilter;
+            // 4) Apply date filter only if on 'all' tab
+            const matchesDate =
+                currentTab !== 'all' || // If not 'all', ignore dateFilter
+                !dateFilter || // If dateFilter is empty, ignore
+                reservationDateStr === dateFilter; // If date matches dateFilter
 
-            // Filter based on the status
-            const matchesStatus = statusFilter === 'all' || reservation.status === statusFilter;
+            // 5) Apply status filter
+            const matchesStatus =
+                statusFilter === 'all' ||
+                reservation.status === statusFilter;
 
-            // Filter based on the selected tab
+            // 6) Tab-based filter
             let matchesTab = true;
             if (currentTab === 'today') {
-                matchesTab = reservation.reservation_date === today;
+                matchesTab = reservationDateStr === todayStr;
             } else if (currentTab === 'upcoming') {
-                matchesTab = reservation.reservation_date > today;
+                matchesTab = reservationDateStr > todayStr;
             } else if (currentTab === 'past') {
-                matchesTab = reservation.reservation_date < today || reservation.status === 'completed';
+                matchesTab =
+                    reservationDateStr < todayStr ||
+                    reservation.status === 'completed';
             }
 
             return matchesSearch && matchesDate && matchesStatus && matchesTab;
         });
 
         setFilteredReservations(filtered);
-        setCurrentPage(1); // Reset pagination when filters change
+        setCurrentPage(1);
     }, [reservations, searchQuery, dateFilter, statusFilter, currentTab]);
+
 
     // Open edit dialog for a reservation
     const openEditDialog = (reservation: Reservation) => {
@@ -259,40 +309,43 @@ export default function ReservationsPage() {
                 // Update existing reservation
                 const updatedReservation = await updateReservation(editingReservation.id, {
                     customer_name: newReservation.customer_name,
-                    contact: newReservation.customer_phone, // Changed from customer_phone to contact
-                    date: newReservation.reservation_date,  // Changed from reservation_date to date
-                    time: newReservation.reservation_time,  // Changed from reservation_time to time
-                    guests: newReservation.party_size,      // Changed from party_size to guests
+                    contact: newReservation.customer_phone,
+                    date: newReservation.reservation_date,
+                    time: newReservation.reservation_time,
+                    guests: newReservation.party_size,
                     table_id: newReservation.table_id,
-                    notes: newReservation.special_requests  // Changed from special_requests to notes
+                    notes: newReservation.special_requests
                 });
 
-                // Update local state
+                console.log('Updated reservation response:', updatedReservation);
+
+                // Update local state with a safe approach
                 setReservations(prev =>
                     prev.map(res =>
                         res.id === editingReservation.id
                             ? {
                                 ...res, // Keep original reservation properties
-                                // Update only the changed fields
-                                customer_name: updatedReservation.customer_name,
-                                customer_phone: updatedReservation.contact,
-                                reservation_date: updatedReservation.date,
-                                reservation_time: updatedReservation.time,
-                                party_size: updatedReservation.guests,
-                                table_id: updatedReservation.table_id,
-                                table_number: updatedReservation.table_id.toString(),
-                                status: updatedReservation.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                                special_requests: updatedReservation.notes || ''
+                                // Update only the changed fields, fallback to existing values if missing
+                                customer_name: updatedReservation.customer_name || res.customer_name,
+                                customer_phone: updatedReservation.contact || res.customer_phone,
+                                reservation_date: updatedReservation.date || res.reservation_date,
+                                reservation_time: updatedReservation.time || res.reservation_time,
+                                party_size: updatedReservation.guests || res.party_size,
+                                table_id: updatedReservation.table_id || res.table_id,
+                                table_number: updatedReservation.table_id ? updatedReservation.table_id.toString() : res.table_number,
+                                status: (updatedReservation.status as 'confirmed' | 'pending' | 'cancelled' | 'completed') || res.status,
+                                special_requests: updatedReservation.notes || res.special_requests
                             }
                             : res
                     )
                 );
             } else {
-                // Create new reservation
+                // Create new reservation with proper field mappings
                 const createdReservation = await createReservation({
                     restaurant_id: restaurantId,
                     customer_name: newReservation.customer_name,
                     customer_phone: newReservation.customer_phone,
+                    customer_email: '', // Optional field
                     reservation_date: newReservation.reservation_date,
                     reservation_time: newReservation.reservation_time,
                     party_size: newReservation.party_size,
@@ -300,29 +353,36 @@ export default function ReservationsPage() {
                     special_requests: newReservation.special_requests
                 });
 
-                // Add to local state
-                setReservations(prev => [
-                    ...prev,
-                    {
-                        id: createdReservation.id,
-                        restaurant_id: createdReservation.restaurant_id,
-                        customer_name: createdReservation.customer_name,
-                        customer_phone: createdReservation.contact || '',
-                        reservation_date: createdReservation.date,
-                        reservation_time: createdReservation.time,
-                        party_size: createdReservation.guests,
-                        table_id: createdReservation.table_id,
-                        table_number: createdReservation.table_id.toString(),
-                        status: createdReservation.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                        special_requests: createdReservation.notes || ''
-                    }
-                ]);
+                console.log('Created reservation response:', createdReservation);
+
+                // Add to local state with safe access to properties
+                if (createdReservation) {
+                    setReservations(prev => [
+                        ...prev,
+                        {
+                            id: createdReservation.id || Math.floor(Math.random() * 10000), // Fallback ID if missing
+                            restaurant_id: createdReservation.restaurant_id || restaurantId,
+                            customer_name: createdReservation.customer_name || newReservation.customer_name,
+                            customer_phone: createdReservation.contact || newReservation.customer_phone,
+                            reservation_date: createdReservation.date || newReservation.reservation_date,
+                            reservation_time: createdReservation.time || newReservation.reservation_time,
+                            party_size: createdReservation.guests || newReservation.party_size,
+                            table_id: createdReservation.table_id || newReservation.table_id,
+                            table_number: createdReservation.table_id ? createdReservation.table_id.toString() : 'N/A',
+                            status: (createdReservation.status as 'confirmed' | 'pending' | 'cancelled' | 'completed') || 'confirmed',
+                            special_requests: createdReservation.notes || newReservation.special_requests
+                        }
+                    ]);
+                }
             }
 
             // Reset form and close dialog
             setNewReservation(emptyReservation);
             setEditingReservation(null);
             setIsDialogOpen(false);
+
+            // Reload data to ensure we have the latest from server
+            loadData();
         } catch (error) {
             console.error('Error saving reservation:', error);
             // Optionally show an error message to the user
@@ -334,6 +394,8 @@ export default function ReservationsPage() {
         if (!selectedReservation) return;
 
         try {
+            console.log(`Deleting reservation ${selectedReservation.id}`);
+
             // Delete from backend
             await deleteReservation(selectedReservation.id);
 
@@ -345,38 +407,72 @@ export default function ReservationsPage() {
             // Close the dialog and reset selected reservation
             setIsDeleteDialogOpen(false);
             setSelectedReservation(null);
+
+            // Show success message
+            console.log('Reservation deleted successfully');
         } catch (error) {
             console.error('Error deleting reservation:', error);
+
+            // Even if there's an error, close the dialog
+            setIsDeleteDialogOpen(false);
+            setSelectedReservation(null);
+
+            // Reload data to ensure we're in sync with the server
+            loadData();
         }
     };
 
     // Change reservation status
     const handleStatusChange = async (reservationId: number, newStatus: 'confirmed' | 'pending' | 'cancelled' | 'completed') => {
         try {
-            // Update reservation status in backend
-            const updatedReservation = await updateReservation(reservationId, { status: newStatus });
+            console.log(`Changing reservation ${reservationId} status to ${newStatus}`);
 
-            // Update local state
+            let updatedReservation;
+
+            // Use the appropriate API method for cancellation
+            if (newStatus === 'cancelled') {
+                try {
+                    // Try to use the dedicated cancel endpoint if available
+                    await cancelReservation(reservationId);
+                    updatedReservation = { status: 'cancelled' };
+                } catch (cancelError) {
+                    console.warn('Cancel endpoint failed, falling back to update:', cancelError);
+                    // If the cancel endpoint fails, fall back to standard update
+                    updatedReservation = await updateReservation(reservationId, { status: newStatus });
+                }
+            } else {
+                // Standard update for other status changes
+                updatedReservation = await updateReservation(reservationId, { status: newStatus });
+            }
+
+            console.log('Status change resulted in:', updatedReservation);
+
+            // Update local state with defensive coding
             setReservations(prev =>
                 prev.map(res =>
                     res.id === reservationId
                         ? {
                             ...res, // Keep original reservation properties
-                            // Update only the status field and any others from updatedReservation
-                            status: updatedReservation.status as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                            // Include these in case they were updated
-                            customer_name: updatedReservation.customer_name || res.customer_name,
-                            customer_phone: updatedReservation.contact || res.customer_phone,
-                            reservation_date: updatedReservation.date || res.reservation_date,
-                            reservation_time: updatedReservation.time || res.reservation_time,
-                            party_size: updatedReservation.guests || res.party_size,
-                            table_id: updatedReservation.table_id || res.table_id,
-                            table_number: updatedReservation.table_id ? updatedReservation.table_id.toString() : res.table_number,
-                            special_requests: updatedReservation.notes || res.special_requests
+                            // Update status while preserving other data if not present in response
+                            status: (updatedReservation?.status as 'confirmed' | 'pending' | 'cancelled' | 'completed') || newStatus,
+                            // Only update these fields if they exist in the response
+                            customer_name: updatedReservation?.customer_name || res.customer_name,
+                            customer_phone: updatedReservation?.contact || res.customer_phone,
+                            reservation_date: updatedReservation?.date || res.reservation_date,
+                            reservation_time: updatedReservation?.time || res.reservation_time,
+                            party_size: updatedReservation?.guests || res.party_size,
+                            table_id: updatedReservation?.table_id || res.table_id,
+                            table_number: updatedReservation?.table_id ? updatedReservation.table_id.toString() : res.table_number,
+                            special_requests: updatedReservation?.notes || res.special_requests
                         }
                         : res
                 )
             );
+
+            // Optionally reload data after a short delay to ensure consistency with server
+            setTimeout(() => {
+                loadData();
+            }, 500);
         } catch (error) {
             console.error('Error updating reservation status:', error);
         }
@@ -423,7 +519,7 @@ export default function ReservationsPage() {
                 </Button>
             </div>
 
-            <Tabs defaultValue="today" value={currentTab} onValueChange={setCurrentTab}>
+            <Tabs defaultValue={currentTab} value={currentTab} onValueChange={setCurrentTab}>
                 <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="today">Today</TabsTrigger>
                     <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
@@ -461,15 +557,17 @@ export default function ReservationsPage() {
                                         />
                                     </div>
 
-                                    <div className="relative w-full sm:w-auto">
-                                        <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            type="date"
-                                            className="pl-8 w-full"
-                                            value={dateFilter}
-                                            onChange={(e) => setDateFilter(e.target.value)}
-                                        />
-                                    </div>
+                                    {currentTab === 'all' && (
+                                        <div className="relative w-full sm:w-auto">
+                                            <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type="date"
+                                                className="pl-8 w-full"
+                                                value={dateFilter}
+                                                onChange={(e) => setDateFilter(e.target.value)}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </CardHeader>
