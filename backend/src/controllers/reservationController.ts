@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { ReservationModel } from '../models/reservationModel';
 import { RestaurantModel } from '../models/restaurantModel';
 import { logger } from '../utils/logger';
+import { sendReservationConfirmation } from '../utils/mailService';
 
 export const ReservationController = {
     // Create a new reservation
@@ -78,14 +79,26 @@ export const ReservationController = {
                 special_requests || ''
             );
 
+            // Récupérer les infos du restaurant pour l'email
+            const restaurant = await RestaurantModel.getRestaurantById(restaurant_id);
+
+            // Envoyer le mail de confirmation
+            await sendReservationConfirmation(customer_email, {
+                date: reservation_date,
+                time: reservation_time,
+                restaurantName: restaurant.restaurant_name,
+                restaurantAddress: restaurant.address
+            });
+
+            // Répondre au client
             res.status(201).json({
                 message: 'Reservation created successfully',
                 reservation
             });
         } catch (error: any) {
-            logger.error(`Error creating reservation: ${error.message}`);
+            logger.error(`Error creating reservation or sending confirmation email: ${error.message}`);
             res.status(500).json({
-                error: 'An error occurred while creating the reservation',
+                error: 'An error occurred while creating the reservation or sending the confirmation email',
                 details: error.message
             });
         }
@@ -199,34 +212,29 @@ export const ReservationController = {
         try {
             // If changing date, time or party size, check availability again
             if (updateData.reservation_date || updateData.reservation_time || updateData.party_size) {
-                const reservation = await ReservationModel.getReservationById(parseInt(id));
+                const existing = await ReservationModel.getReservationById(parseInt(id));
 
-                if (!reservation) {
+                if (!existing) {
                     res.status(404).json({ error: 'Reservation not found' });
                     return;
                 }
 
-                // Prepare data for availability check
-                const date = updateData.reservation_date || reservation.reservation_date;
-                const time = updateData.reservation_time || reservation.reservation_time;
-                const size = updateData.party_size || reservation.party_size;
+                const date = updateData.reservation_date || existing.reservation_date;
+                const time = updateData.reservation_time || existing.reservation_time;
+                const size = updateData.party_size || existing.party_size;
 
-                // Only check if time is changing
-                if (updateData.reservation_time || updateData.reservation_date || updateData.party_size) {
-                    const availableSlots = await ReservationModel.getAvailableTimeSlots(
-                        reservation.restaurant_id,
-                        date,
-                        size
-                    );
+                const availableSlots = await ReservationModel.getAvailableTimeSlots(
+                    existing.restaurant_id,
+                    date,
+                    size
+                );
 
-                    // Add the current time slot to available slots since we're updating this reservation
-                    if (!availableSlots.includes(time)) {
-                        res.status(400).json({
-                            error: 'Time slot not available',
-                            message: 'The selected time slot is no longer available'
-                        });
-                        return;
-                    }
+                if (!availableSlots.includes(time)) {
+                    res.status(400).json({
+                        error: 'Time slot not available',
+                        message: 'The selected time slot is no longer available'
+                    });
+                    return;
                 }
             }
 

@@ -13,7 +13,7 @@ export const ReservationModel = {
         reservation_date: string,
         reservation_time: string,
         special_requests: string = "",
-        status: string = "confirmed"
+        status: string = "pending"
     ) {
         try {
             // Determine end time (assuming 90 minutes per reservation)
@@ -22,12 +22,12 @@ export const ReservationModel = {
             // Insert the reservation
             const query = `
                 INSERT INTO restaurant_reservations(
-                    restaurant_id, table_id, customer_name, customer_email, 
-                    customer_phone, party_size, reservation_date, reservation_time, 
+                    restaurant_id, table_id, customer_name, customer_email,
+                    customer_phone, party_size, reservation_date, reservation_time,
                     end_time, special_requests, status
                 )
                 VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                RETURNING *
+                    RETURNING *
             `;
 
             const values = [
@@ -97,9 +97,9 @@ export const ReservationModel = {
 
             // Get all reservations for this restaurant on this date
             const query = `
-                SELECT table_id, reservation_time, end_time 
+                SELECT table_id, reservation_time, end_time
                 FROM restaurant_reservations
-                WHERE restaurant_id = $1 
+                WHERE restaurant_id = $1
                   AND reservation_date = $2
                   AND status != 'cancelled'
                   AND table_id IS NOT NULL
@@ -232,7 +232,7 @@ export const ReservationModel = {
                 UPDATE restaurant_reservations
                 SET ${setFields}
                 WHERE id = $1
-                RETURNING *
+                    RETURNING *
             `;
 
             const result = await db.query(query, [id, ...values]);
@@ -255,7 +255,7 @@ export const ReservationModel = {
             const query = `
                 DELETE FROM restaurant_reservations
                 WHERE id = $1
-                RETURNING id
+                    RETURNING id
             `;
 
             const result = await db.query(query, [id]);
@@ -323,7 +323,7 @@ export const ReservationModel = {
             // 4. Get existing reservations for this date
             const reservationsQuery = `
                 SELECT * FROM restaurant_reservations
-                WHERE restaurant_id = $1 
+                WHERE restaurant_id = $1
                   AND reservation_date = $2
                   AND status != 'cancelled'
             `;
@@ -376,14 +376,14 @@ export const ReservationModel = {
             // Update reservation status to 'cancelled'
             const query = `
                 UPDATE restaurant_reservations
-                SET 
+                SET
                     status = 'cancelled',
-                    special_requests = CASE 
-                        WHEN $2 != '' THEN CONCAT('Cancellation reason: ', $2)
-                        ELSE 'Cancelled by user'
-                    END
+                    special_requests = CASE
+                                           WHEN $2 != '' THEN CONCAT('Cancellation reason: ', $2)
+                                           ELSE 'Cancelled by user'
+                        END
                 WHERE id = $1
-                RETURNING *
+                    RETURNING *
             `;
 
             const result = await db.query(query, [id, cancellationReason]);
