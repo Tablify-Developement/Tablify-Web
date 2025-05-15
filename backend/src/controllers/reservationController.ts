@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 import { ReservationModel } from '../models/reservationModel';
 import { RestaurantModel } from '../models/restaurantModel';
 import { logger } from '../utils/logger';
-import { sendReservationConfirmation } from '../utils/mailService';
+import { sendReservationConfirmation, sendReservationCancellation } from '../utils/mailService';
 
 export const ReservationController = {
     // Create a new reservation
@@ -20,18 +20,12 @@ export const ReservationController = {
             special_requests
         } = req.body;
 
-        // Validate required fields
-        if (!restaurant_id || !customer_name || !customer_phone || !party_size ||
-            !reservation_date || !reservation_time) {
-            res.status(400).json({
-                error: 'Missing required fields',
-                message: 'Restaurant ID, customer name, phone, party size, date and time are required'
-            });
+        if (!restaurant_id || !customer_name || !customer_phone || !party_size || !reservation_date || !reservation_time) {
+            res.status(400).json({ error: 'Missing required fields' });
             return;
         }
 
         try {
-            // Check if the time slot is available
             const availableSlots = await ReservationModel.getAvailableTimeSlots(
                 restaurant_id,
                 reservation_date,
@@ -39,14 +33,10 @@ export const ReservationController = {
             );
 
             if (!availableSlots.includes(reservation_time)) {
-                res.status(400).json({
-                    error: 'Time slot not available',
-                    message: 'The selected time slot is no longer available'
-                });
+                res.status(400).json({ error: 'Time slot not available' });
                 return;
             }
 
-            // If table_id is provided, verify that the table is valid and available
             if (table_id) {
                 const availableTables = await ReservationModel.getAvailableTablesForTime(
                     restaurant_id,
@@ -58,15 +48,11 @@ export const ReservationController = {
                 const isTableAvailable = availableTables.some(table => table.id === table_id);
 
                 if (!isTableAvailable) {
-                    res.status(400).json({
-                        error: 'Table not available',
-                        message: 'The selected table is not available for this time'
-                    });
+                    res.status(400).json({ error: 'Table not available' });
                     return;
                 }
             }
 
-            // Create the reservation
             const reservation = await ReservationModel.createReservation(
                 restaurant_id,
                 table_id || null,
@@ -79,10 +65,8 @@ export const ReservationController = {
                 special_requests || ''
             );
 
-            // Récupérer les infos du restaurant pour l'email
             const restaurant = await RestaurantModel.getRestaurantById(restaurant_id);
 
-            // Envoyer le mail de confirmation
             await sendReservationConfirmation(customer_email, {
                 date: reservation_date,
                 time: reservation_time,
@@ -90,17 +74,13 @@ export const ReservationController = {
                 restaurantAddress: restaurant.address
             });
 
-            // Répondre au client
             res.status(201).json({
                 message: 'Reservation created successfully',
                 reservation
             });
         } catch (error: any) {
-            logger.error(`Error creating reservation or sending confirmation email: ${error.message}`);
-            res.status(500).json({
-                error: 'An error occurred while creating the reservation or sending the confirmation email',
-                details: error.message
-            });
+            logger.error(`Error creating reservation: ${error.message}`);
+            res.status(500).json({ error: 'Error creating reservation', details: error.message });
         }
     },
 
@@ -323,7 +303,6 @@ export const ReservationController = {
         }
 
         try {
-            // First check if the reservation exists
             const reservation = await ReservationModel.getReservationById(parseInt(id));
 
             if (!reservation) {
@@ -331,28 +310,35 @@ export const ReservationController = {
                 return;
             }
 
-            // Check if the reservation is already cancelled
             if (reservation.status === 'cancelled') {
                 res.status(400).json({ error: 'Reservation is already cancelled' });
                 return;
             }
 
-            // Cancel the reservation
             const cancelledReservation = await ReservationModel.cancelReservation(
                 parseInt(id),
                 cancellation_reason
             );
 
+            // Envoi de l'email de confirmation d'annulation
+            if (reservation.customer_email) {
+                try {
+                    await sendReservationCancellation(reservation.customer_email, reservation.customer_name);
+                    logger.info(`E-mail d'annulation envoyé à ${reservation.customer_email}`);
+                } catch (emailError: any) {
+                    logger.error(`Erreur lors de l'envoi du mail d'annulation : ${emailError.message}`);
+                    // Ne pas bloquer l'annulation si l'email échoue
+                }
+            }
+
             res.status(200).json({
                 message: 'Reservation cancelled successfully',
                 reservation: cancelledReservation
             });
+
         } catch (error: any) {
             logger.error(`Error cancelling reservation: ${error.message}`);
-            res.status(500).json({
-                error: 'An error occurred while cancelling the reservation',
-                details: error.message
-            });
+            res.status(500).json({ error: 'Error cancelling reservation', details: error.message });
         }
     }
 };

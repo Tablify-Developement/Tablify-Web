@@ -1,7 +1,6 @@
 import db from '../config/database';
 import { logger } from '../utils/logger';
 
-// Utilisateurs model
 export const UtilisateurModel = {
     async createUtilisateur(
         nom: string,
@@ -11,25 +10,60 @@ export const UtilisateurModel = {
         role: string,
         notification: boolean,
         langue: string,
-        date_naissance: Date
+        date_naissance: Date,
+        verification_token: string,
+        token_expires: Date
     ) {
         try {
             const query = `
-                INSERT INTO utilisateurs(nom, prenom, mail, password, role, notification, langue, date_naissance)
-                VALUES($1, $2, $3, $4, $5, $6, $7, $8)
-                RETURNING *
+                INSERT INTO utilisateurs(
+                    nom, prenom, mail, password, role, notification, langue, date_naissance,
+                    email_verified, verification_token, token_expires
+                )
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8,FALSE,$9,$10)
+                    RETURNING *
             `;
-
-            const values = [nom, prenom, mail, password, role, notification, langue, date_naissance];
+            const values = [
+                nom, prenom, mail, password, role, notification,
+                langue, date_naissance, verification_token, token_expires
+            ];
             const result = await db.query(query, values);
-
-            logger.success('Utilisateur created');
+            logger.success('Utilisateur créé avec token de vérification');
             return result.rows[0];
         } catch (error: any) {
             logger.error(`Error creating Utilisateur: ${error.message}`);
             throw error;
         }
     },
+
+    async getByVerificationToken(token: string) {
+        try {
+            const query = `SELECT * FROM utilisateurs WHERE verification_token = $1`;
+            const result = await db.query(query, [token]);
+            return result.rows[0] || null;
+        } catch (error: any) {
+            logger.error(`Error fetching user by token: ${error.message}`);
+            throw error;
+        }
+    },
+
+    async verifyEmail(id_utilisateur: string) {
+        try {
+            const query = `
+        UPDATE utilisateurs
+        SET email_verified = TRUE,
+            verification_token = NULL,
+            token_expires = NULL
+        WHERE id_utilisateur = $1
+      `;
+            await db.query(query, [id_utilisateur]);
+            logger.success(`Utilisateur ${id_utilisateur} email vérifié`);
+        } catch (error: any) {
+            logger.error(`Error verifying email: ${error.message}`);
+            throw error;
+        }
+    },
+
 
     // Get user by email for authentication
     async getUserByEmail(mail: string) {
