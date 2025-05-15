@@ -1,9 +1,8 @@
 // backend/src/utils/mailService.ts
 
 import sgMail from "@sendgrid/mail";
-import { logger } from "./logger";  // ou "../utils/logger" selon ton arborescence
+import { logger } from "./logger";
 
-// Initialise SendGrid avec la clé de l'environnement
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export interface ReservationDetails {
@@ -15,9 +14,6 @@ export interface ReservationDetails {
 
 /**
  * Envoie un e-mail de confirmation de réservation.
- *
- * @param to - l'adresse e-mail du client
- * @param details - les détails de la réservation
  */
 export async function sendReservationConfirmation(
     to: string,
@@ -27,7 +23,7 @@ export async function sendReservationConfirmation(
 
     const msg = {
         to,
-        from: process.env.EMAIL_FROM!,    // Doit être validé dans SendGrid
+        from: process.env.EMAIL_FROM!,
         subject: "Confirmation de votre réservation",
         text: `
 Bonjour,
@@ -58,9 +54,45 @@ Merci de votre confiance !
         await sgMail.send(msg);
         logger.info(`E-mail de confirmation envoyé à ${to}`);
     } catch (error: any) {
-        // Premier log : message d’erreur générique
         logger.error("Échec de l'envoi du mail de confirmation");
-        // Puis log de l’erreur détaillée
+        logger.error(error);
+        throw error;
+    }
+}
+
+/**
+ * Envoie un e-mail de confirmation d'annulation de réservation.
+ */
+export async function sendReservationCancellation(
+    to: string,
+    customerName: string
+): Promise<void> {
+    const msg = {
+        to,
+        from: process.env.EMAIL_FROM!,
+        subject: "Annulation de votre réservation",
+        text: `
+Bonjour ${customerName},
+
+Votre réservation a été annulée avec succès.
+
+Merci de nous avoir prévenus.
+
+À bientôt !
+    `,
+        html: `
+      <p>Bonjour ${customerName},</p>
+      <p>Votre réservation a été <strong>annulée</strong> avec succès.</p>
+      <p>Merci de nous avoir prévenus.</p>
+      <p>À bientôt !</p>
+    `,
+    };
+
+    try {
+        await sgMail.send(msg);
+        logger.info(`E-mail d'annulation envoyé à ${to}`);
+    } catch (error: any) {
+        logger.error("Échec de l'envoi du mail d'annulation");
         logger.error(error);
         throw error;
     }

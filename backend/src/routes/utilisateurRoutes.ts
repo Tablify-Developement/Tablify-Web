@@ -1,19 +1,18 @@
-import express from 'express';
-import { UtilisateurController } from "../controllers/utilisateurController";
+import { Router } from 'express';
+import { UtilisateurController } from '../controllers/utilisateurController';
 
-const router = express.Router();
+const router = Router();
 
-// User Registration Route
 router.post('/', UtilisateurController.createUtilisateur);
-
-// User Login Route
 router.post('/login', UtilisateurController.loginUtilisateur);
+router.get('/verify-email', UtilisateurController.verifyEmail);
 
-// Existing User Routes
+// ← On remet la route GET / pour getAllUtilisateurs
 router.get('/', UtilisateurController.getAllUtilisateurs);
-router.get('/:id', UtilisateurController.getUtilisateurById);
-router.get('/:id_interet', UtilisateurController.getUtilisateurByInteret);
-router.put('/:id', UtilisateurController.updateUtilisateur);
-router.delete('/:id', UtilisateurController.deleteUtilisateur);
+
+router.get('/interet/:id_interet', UtilisateurController.getUtilisateurByInteret);
+router.get('/:id_utilisateur', UtilisateurController.getUtilisateurById);
+router.put('/:id_utilisateur', UtilisateurController.updateUtilisateur);
+router.delete('/:id_utilisateur', UtilisateurController.deleteUtilisateur);
 
 export default router;
