@@ -8,7 +8,7 @@ console.log('→ NEXT_PUBLIC_APP_URL loaded:', process.env.NEXT_PUBLIC_APP_URL);
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
 export async function sendVerificationEmail(to: string, token: string) {
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/utilisateurs/verify-email?token=${token}`;
+    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/users/verify-email?token=${token}`;
     const msg = {
         to,
         from: process.env.EMAIL_FROM!,
