@@ -76,7 +76,7 @@ exports.RestaurantModel = {
                 INSERT INTO restaurants
                 (user_id, restaurant_name, restaurant_type, address, contact, description, verification)
                 VALUES($1, $2, $3, $4, $5, $6, $7)
-                RETURNING *
+                    RETURNING *
             `;
                 const values = [user_id, restaurant_name, restaurant_type, address, contact, description, 'pending'];
                 const result = yield database_1.default.query(query, values);
@@ -129,7 +129,7 @@ exports.RestaurantModel = {
                 UPDATE restaurants
                 SET ${setFields}
                 WHERE id = $1
-                RETURNING *
+                    RETURNING *
             `;
                 const result = yield database_1.default.query(query, [id, ...values]);
                 if (result.rows.length === 0) {
@@ -151,7 +151,7 @@ exports.RestaurantModel = {
                 const query = `
                 DELETE FROM restaurants
                 WHERE id = $1
-                RETURNING id
+                    RETURNING id
             `;
                 const result = yield database_1.default.query(query, [id]);
                 if (result.rows.length === 0) {
@@ -208,9 +208,9 @@ exports.RestaurantModel = {
             try {
                 const query = `
                 INSERT INTO restaurant_tables
-                (restaurant_id, table_number, capacity, location, status)
+                    (restaurant_id, table_number, capacity, location, status)
                 VALUES($1, $2, $3, $4, $5)
-                RETURNING *
+                    RETURNING *
             `;
                 const values = [restaurant_id, table_number, parseInt(capacity), location, status];
                 const result = yield database_1.default.query(query, values);
@@ -237,7 +237,7 @@ exports.RestaurantModel = {
                 UPDATE restaurant_tables
                 SET ${setFields}
                 WHERE restaurant_id = $1 AND id = $2
-                RETURNING *
+                    RETURNING *
             `;
                 const result = yield database_1.default.query(query, [restaurant_id, table_id, ...values]);
                 if (result.rows.length === 0) {
@@ -258,7 +258,7 @@ exports.RestaurantModel = {
                 const query = `
                 DELETE FROM restaurant_tables
                 WHERE restaurant_id = $1 AND id = $2
-                RETURNING id
+                    RETURNING id
             `;
                 const result = yield database_1.default.query(query, [restaurant_id, table_id]);
                 if (result.rows.length === 0) {
@@ -344,9 +344,9 @@ exports.RestaurantModel = {
                             // Create new hours record
                             const insertQuery = `
                             INSERT INTO restaurant_hours
-                            (restaurant_id, day_of_week, is_open)
+                                (restaurant_id, day_of_week, is_open)
                             VALUES($1, $2, $3)
-                            RETURNING id
+                                RETURNING id
                         `;
                             const insertResult = yield client.query(insertQuery, [restaurant_id, day, dayData.isOpen]);
                             hoursId = insertResult.rows[0].id;
@@ -372,7 +372,7 @@ exports.RestaurantModel = {
                             for (const shift of dayData.shifts) {
                                 const shiftQuery = `
                                 INSERT INTO restaurant_shifts
-                                (restaurant_hours_id, shift_name, open_time, close_time)
+                                    (restaurant_hours_id, shift_name, open_time, close_time)
                                 VALUES($1, $2, $3, $4)
                             `;
                                 yield client.query(shiftQuery, [hoursId, shift.name, shift.open, shift.close]);
@@ -486,7 +486,7 @@ exports.RestaurantModel = {
                             // Create new settings
                             const settingsQuery = `
                             INSERT INTO restaurant_settings
-                            (restaurant_id, currency, tax_rate)
+                                (restaurant_id, currency, tax_rate)
                             VALUES($1, $2, $3)
                         `;
                             yield client.query(settingsQuery, [

@@ -15,23 +15,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UtilisateurModel = void 0;
 const database_1 = __importDefault(require("../config/database"));
 const logger_1 = require("../utils/logger");
-// Utilisateurs model
 exports.UtilisateurModel = {
-    createUtilisateur(nom, prenom, mail, password, role, notification, langue, date_naissance) {
+    createUtilisateur(nom, prenom, mail, password, role, notification, langue, date_naissance, verification_token, token_expires) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const query = `
-                INSERT INTO utilisateurs(nom, prenom, mail, password, role, notification, langue, date_naissance)
-                VALUES($1, $2, $3, $4, $5, $6, $7, $8)
-                RETURNING *
+                INSERT INTO utilisateurs(
+                    nom, prenom, mail, password, role, notification, langue, date_naissance,
+                    email_verified, verification_token, token_expires
+                )
+                VALUES($1,$2,$3,$4,$5,$6,$7,$8,FALSE,$9,$10)
+                    RETURNING *
             `;
-                const values = [nom, prenom, mail, password, role, notification, langue, date_naissance];
+                const values = [
+                    nom, prenom, mail, password, role, notification,
+                    langue, date_naissance, verification_token, token_expires
+                ];
                 const result = yield database_1.default.query(query, values);
-                logger_1.logger.success('Utilisateur created');
+                logger_1.logger.success('Utilisateur créé avec token de vérification');
                 return result.rows[0];
             }
             catch (error) {
                 logger_1.logger.error(`Error creating Utilisateur: ${error.message}`);
+                throw error;
+            }
+        });
+    },
+    getByVerificationToken(token) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const query = `SELECT * FROM utilisateurs WHERE verification_token = $1`;
+                const result = yield database_1.default.query(query, [token]);
+                return result.rows[0] || null;
+            }
+            catch (error) {
+                logger_1.logger.error(`Error fetching user by token: ${error.message}`);
+                throw error;
+            }
+        });
+    },
+    verifyEmail(id_utilisateur) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const query = `
+        UPDATE utilisateurs
+        SET email_verified = TRUE,
+            verification_token = NULL,
+            token_expires = NULL
+        WHERE id_utilisateur = $1
+      `;
+                yield database_1.default.query(query, [id_utilisateur]);
+                logger_1.logger.success(`Utilisateur ${id_utilisateur} email vérifié`);
+            }
+            catch (error) {
+                logger_1.logger.error(`Error verifying email: ${error.message}`);
                 throw error;
             }
         });

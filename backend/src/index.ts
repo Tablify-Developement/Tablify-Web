@@ -1,77 +1,81 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import dotenv from 'dotenv';
 import { logger } from './utils/logger';
 import db from './config/database';
-import dotenv from 'dotenv';
 
-// Import route modules
 import testRoutes from './routes/test';
 import utilisateurRoutes from './routes/utilisateurRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
 import reservationRoutes from './routes/reservationRoutes';
+import picoRoutes from './routes/picoRoutes';
 
-// Load environment variables
 dotenv.config();
 
-// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
-// Configure middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
-
-// Serve uploaded images
 app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-// Development request logging
+// Dev logger
 if (process.env.NODE_ENV !== 'production') {
-    app.use((req, res, next) => {
+    app.use((req, _res, next) => {
         logger.info(`${req.method} ${req.url}`);
         next();
     });
 }
 
-// Register routes
+// Routes versionnées
 app.use('/services', testRoutes);
-app.use('/api', testRoutes);
+
+// Routes API
 app.use('/api/users', utilisateurRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
+app.use('/api/pico', picoRoutes);
 
-// Health check endpoints
-app.get('/', (_req: Request, res: Response) => {
-    res.status(200).json({
+// Health checks & home
+app.get('/', (_req, res) => {
+    res.json({
         message: 'Tablify API is running',
         version: '1.0.0',
-        environment: process.env.NODE_ENV || 'development',
+        environment: process.env.NODE_ENV || 'development'
     });
 });
 
-app.get('/api/health', async (_req: Request, res: Response) => {
+app.get('/api/health', async (_req, res) => {
     try {
         const result = await db.query('SELECT NOW() AS now');
-        res.status(200).json({
+        res.json({
             status: 'ok',
             database: 'connected',
-            timestamp: result.rows[0].now,
+            timestamp: result.rows[0].now
         });
-    } catch (error: any) {
-        logger.error(`Health check failed: ${error.message}`);
+    } catch (err: any) {
+        logger.error(`Health check error: ${err.message}`);
         res.status(500).json({
             status: 'error',
             database: 'disconnected',
-            error: error.message,
+            error: err.message
         });
     }
 });
 
+// 404 fallback
+app.use((_req, res) => {
+    res.status(404).json({ error: 'Not Found' });
+});
+
 // Global error handler
-app.use((err: Error, _req: Request, res: Response, _next: Function) => {
-    logger.error(`Unhandled error: ${err.message}`);
+app.use((err: any, _req: any, res: any, _next: any) => {
+    logger.error(`Unhandled error: ${err.stack || err.message}`);
     res.status(500).json({ error: 'Internal server error' });
 });
+
 
 // Start server with graceful shutdown
 async function startServer() {
@@ -81,8 +85,9 @@ async function startServer() {
         if (!isConnected) {
             logger.error('Failed to connect to the database.');
         }
-        const server = app.listen(PORT, () => {
-            logger.connection(`Server is running on http://localhost:${PORT}`);
+        // bind sur 0.0.0.0 pour accepter les requêtes depuis le réseau
+        const server = app.listen(PORT, '0.0.0.0', () => {
+            logger.connection(`Server is running on http://0.0.0.0:${PORT}`);
         });
         setupGracefulShutdown(server);
     } catch (error: any) {

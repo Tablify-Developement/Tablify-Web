@@ -1,0 +1,299 @@
+code Projet sur le rapberry Pi Pico W
+
+config.manager.py
+
+import ujson as json
+import os
+
+CONFIG_FILE = 'config.json'
+
+def load_config():
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except:
+        return {}
+
+def save_config(cfg):
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            f.write(json.dumps(cfg))
+    except Exception as e:
+        print("Error saving config:", e)
+
+def clear_config():
+    try:
+        os.remove(CONFIG_FILE)
+    except OSError:
+        pass
+
+def update_field(k, v):
+    cfg = load_config()
+    cfg[k] = v
+    save_config(cfg)
+
+def valid():
+    cfg = load_config()
+    return all(k in cfg and cfg[k] for k in ('ssid','password','apiUrl'))
+
+Wifi_setup.py
+
+import socket
+import network
+from config_manager import update_field
+
+AP_SSID = 'PicoW-Config'
+AP_PWD  = 'pico1234'
+
+HTML_FORM = """\
+HTTP/1.0 200 OK
+
+<html><body>
+  <h3>Config Wi-Fi & API</h3>
+  <form action="/save">
+    SSID: <input name="ssid"/><br>
+    Password: <input name="password" type="password"/><br>
+    apiUrl: <input name="apiUrl"/><br>
+    <input type="submit" value="Save"/>
+  </form>
+</body></html>
+"""
+
+def start_ap():
+    ap = network.WLAN(network.AP_IF)
+    ap.active(True)
+    ap.config(essid=AP_SSID, password=AP_PWD)
+    while not ap.active():
+        pass
+    print("AP actif, IP:", ap.ifconfig()[0])
+
+def urldecode(s):
+    res = ''
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c == '%':
+            h = s[i+1:i+3]
+            res += chr(int(h, 16))
+            i += 3
+        elif c == '+':
+            res += ' '
+            i += 1
+        else:
+            res += c
+            i += 1
+    return res
+
+def start_webserver():
+    addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
+    s = socket.socket()
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind(addr); s.listen(1)
+    print("Serveur web sur port 80")
+
+    while True:
+        cl, _ = s.accept()
+        req = cl.recv(1024).decode()
+        if 'GET /save?' in req:
+            # extraire la query string
+            qs = req.split('?',1)[1].split(' ')[0]
+            for part in qs.split('&'):
+                k, v_enc = part.split('=',1)
+                v = urldecode(v_enc)
+                update_field(k, v)
+            cl.send("HTTP/1.0 200 OK\r\n\r\nEnregistré, reboot...")
+            cl.close()
+            break
+        else:
+            cl.send(HTML_FORM)
+            cl.close()
+    s.close()
+
+main.py
+
+import time
+import machine
+import network
+import urequests as requests
+from config_manager import load_config, clear_config, valid
+from wifi_setup import start_ap, start_webserver
+from machine import Pin
+
+# ==== GPIO ====
+led_green = Pin(2, Pin.OUT)
+led_red   = Pin(3, Pin.OUT)
+
+bcd_pins   = [Pin(n, Pin.OUT) for n in (4,5,6,7)]
+blank_tens  = Pin(8, Pin.OUT, value=0)  # par défaut LOW = off
+blank_units = Pin(9, Pin.OUT, value=0)
+
+
+btn_free     = Pin(14, Pin.IN, Pin.PULL_DOWN)
+btn_reserved = Pin(15, Pin.IN, Pin.PULL_DOWN)
+
+# ==== Affichage multiplexé pour PNP high-side ====
+
+def drive_digit(val, blank_pin):
+    # place les bits BCD
+    for i, p in enumerate(bcd_pins):
+        p.value((val >> i) & 1)
+    # ACTIVER le transistor high-side (PNP) par HIGH
+    blank_pin.value(1)
+    time.sleep_us(500)   # 0.5 ms d’allumage
+    # COUPER par LOW
+    blank_pin.value(0)
+
+def multiplex(table, duration_ms=100):
+    tens  = table // 10
+    units = table % 10
+    end = time.ticks_add(time.ticks_ms(), duration_ms)
+    while time.ticks_diff(end, time.ticks_ms()) > 0:
+        # Toujours afficher la dizaine, même si val == 0
+        drive_digit(tens, blank_tens)
+
+        # Puis l’unité
+        drive_digit(units, blank_units)
+
+def leds_et_afficheur(table, state):
+    led_green.value(1 if state == 'free' else 0)
+    led_red.value(1 if state == 'reserved' else 0)
+    multiplex(table, duration_ms=100)
+
+# ==== Réseau ====
+def send_state(api, table, state):
+    try:
+        r = requests.post(api.rstrip('/') + '/state',
+                          json={'table': table, 'state': state})
+        r.close()
+    except Exception as e:
+        print("POST error:", e)
+
+def connect_wifi(ssid, pwd, timeout=15):
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+    wlan.connect(ssid, pwd)
+    for _ in range(timeout):
+        if wlan.isconnected():
+            print("Wi-Fi OK:", wlan.ifconfig()[0])
+            return True
+        time.sleep(1)
+    return False
+
+# ==== Programme principal ====
+def main():
+    if not valid():
+        clear_config()
+        print("⚠️ Config incomplète, démarrage AP")
+        start_ap()
+        start_webserver()
+        return
+
+    cfg = load_config()
+    if not connect_wifi(cfg['ssid'], cfg['password']):
+        print("🔴 Wi-Fi fail, reset")
+        clear_config()
+        machine.reset()
+        return
+
+    api = cfg['apiUrl']
+    print("✅ API_URL =", api)
+
+    last_table = -1
+    last_state = ''
+    prev_free = 0
+    prev_reserved = 0
+
+    while True:
+        # Lecture des boutons
+        curr_free     = btn_free.value()
+        curr_reserved = btn_reserved.value()
+
+        # Détection d'un appui (front montant)
+        if curr_free and not prev_free:
+            send_state(api, last_table, 'free')
+        if curr_reserved and not prev_reserved:
+            send_state(api, last_table, 'reserved')
+
+        prev_free     = curr_free
+        prev_reserved = curr_reserved
+
+        # Récupération du status depuis l’API
+        try:
+            r = requests.get(api.rstrip('/') + '/status')
+            if r.status_code == 200:
+                d = r.json()
+                table = int(d.get('table', 0))
+                state = d.get('state', 'free')
+                if (table, state) != (last_table, last_state):
+                    print("Status:", d)
+                    last_table, last_state = table, state
+            else:
+                print("Status HTTP", r.status_code)
+            r.close()
+        except Exception as e:
+            print("HTTP error:", e)
+
+        # Mise à jour du hard­ware
+        leds_et_afficheur(last_table, last_state)
+
+        # Un petit délai pour debouncer + pas spammer l’API
+        time.sleep(0.1)
+
+if __name__ == '__main__':
+    main()
+
+test_7seg.py
+
+import time
+from machine import Pin
+
+# BCD pins
+bcd = [Pin(n, Pin.OUT) for n in (4,5,6,7)]
+# Transistors PNP pilotant les anodes
+tens  = Pin(8, Pin.OUT)
+units = Pin(9, Pin.OUT)
+
+def show_digit(val, sel):
+    # place BCD
+    for i,p in enumerate(bcd):
+        p.value((val>>i)&1)
+    # active ce digit
+    sel.value(1)
+    time.sleep_ms(5)
+    sel.value(0)
+
+while True:
+    # afficher 0 sur tens, 6 sur units
+    show_digit(6, tens)
+    show_digit(9, units)
+
+
+test_btn.py
+
+from machine import Pin
+import time
+
+btn_free     = Pin(14, Pin.IN, Pin.PULL_DOWN)
+btn_reserved = Pin(15, Pin.IN, Pin.PULL_DOWN)
+
+while True:
+    print("FREE=", btn_free.value(), " | RESERVED=", btn_reserved.value())
+    time.sleep(0.2)
+
+
+test_led.py
+
+import time
+from machine import Pin
+
+led = Pin(3, Pin.OUT)   # change en 3 pour la rouge
+while True:
+    led.value(1)        # ON
+    time.sleep(0.5)
+    led.value(0)        # OFF
+    time.sleep(0.5)
+
+
+config.json
+
+{"ssid": "devolo-30d32d589e87", "password": "EQBOCGAGJWNHCAGP", "apiUrl": "http://192.168.0.22:3001/api/pico"}

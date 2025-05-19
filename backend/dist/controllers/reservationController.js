@@ -13,43 +13,43 @@ exports.ReservationController = void 0;
 const reservationModel_1 = require("../models/reservationModel");
 const restaurantModel_1 = require("../models/restaurantModel");
 const logger_1 = require("../utils/logger");
+const mailService_1 = require("../utils/mailService");
 exports.ReservationController = {
     // Create a new reservation
     createReservation: (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const { restaurant_id, table_id, customer_name, customer_email, customer_phone, party_size, reservation_date, reservation_time, special_requests } = req.body;
-        // Validate required fields
-        if (!restaurant_id || !customer_name || !customer_phone || !party_size ||
-            !reservation_date || !reservation_time) {
-            res.status(400).json({
-                error: 'Missing required fields',
-                message: 'Restaurant ID, customer name, phone, party size, date and time are required'
-            });
+        if (!restaurant_id || !customer_name || !customer_phone || !party_size || !reservation_date || !reservation_time) {
+            res.status(400).json({ error: 'Missing required fields' });
             return;
         }
         try {
-            // Check if the time slot is available
             const availableSlots = yield reservationModel_1.ReservationModel.getAvailableTimeSlots(restaurant_id, reservation_date, party_size);
             if (!availableSlots.includes(reservation_time)) {
-                res.status(400).json({
-                    error: 'Time slot not available',
-                    message: 'The selected time slot is no longer available'
-                });
+                res.status(400).json({ error: 'Time slot not available' });
                 return;
             }
-            // If table_id is provided, verify that the table is valid and available
             if (table_id) {
                 const availableTables = yield reservationModel_1.ReservationModel.getAvailableTablesForTime(restaurant_id, reservation_date, reservation_time, party_size);
                 const isTableAvailable = availableTables.some(table => table.id === table_id);
                 if (!isTableAvailable) {
-                    res.status(400).json({
-                        error: 'Table not available',
-                        message: 'The selected table is not available for this time'
-                    });
+                    res.status(400).json({ error: 'Table not available' });
                     return;
                 }
             }
-            // Create the reservation
             const reservation = yield reservationModel_1.ReservationModel.createReservation(restaurant_id, table_id || null, customer_name, customer_email || '', customer_phone, party_size, reservation_date, reservation_time, special_requests || '');
+            const restaurant = yield restaurantModel_1.RestaurantModel.getRestaurantById(restaurant_id);
+            // 2) Mise à jour du statut de la table pour que /api/pico/status renvoie la bonne table
+            yield reservationModel_1.ReservationModel.updateTableStatus(reservation.table_id, 'reserved');
+            logger_1.logger.info(`Table ${reservation.table_id} set to \"reserved\" after booking #${reservation.id}`);
+            yield (0, mailService_1.sendReservationConfirmation)(customer_email, {
+                date: reservation_date,
+                time: reservation_time,
+                restaurantName: restaurant.restaurant_name,
+                restaurantAddress: restaurant.address
+            });
+            // 4) Marquer la table comme réservée pour que /api/pico/status voit ce changement
+            +(yield reservationModel_1.ReservationModel.updateTableStatus(reservation.table_id, 'reserved'));
+            +logger_1.logger.info(`Table ${reservation.table_id} marquée en reserved via web UI`);
             res.status(201).json({
                 message: 'Reservation created successfully',
                 reservation
@@ -57,10 +57,7 @@ exports.ReservationController = {
         }
         catch (error) {
             logger_1.logger.error(`Error creating reservation: ${error.message}`);
-            res.status(500).json({
-                error: 'An error occurred while creating the reservation',
-                details: error.message
-            });
+            res.status(500).json({ error: 'Error creating reservation', details: error.message });
         }
     }),
     // Get available tables for a specific time
@@ -149,26 +146,21 @@ exports.ReservationController = {
         try {
             // If changing date, time or party size, check availability again
             if (updateData.reservation_date || updateData.reservation_time || updateData.party_size) {
-                const reservation = yield reservationModel_1.ReservationModel.getReservationById(parseInt(id));
-                if (!reservation) {
+                const existing = yield reservationModel_1.ReservationModel.getReservationById(parseInt(id));
+                if (!existing) {
                     res.status(404).json({ error: 'Reservation not found' });
                     return;
                 }
-                // Prepare data for availability check
-                const date = updateData.reservation_date || reservation.reservation_date;
-                const time = updateData.reservation_time || reservation.reservation_time;
-                const size = updateData.party_size || reservation.party_size;
-                // Only check if time is changing
-                if (updateData.reservation_time || updateData.reservation_date || updateData.party_size) {
-                    const availableSlots = yield reservationModel_1.ReservationModel.getAvailableTimeSlots(reservation.restaurant_id, date, size);
-                    // Add the current time slot to available slots since we're updating this reservation
-                    if (!availableSlots.includes(time)) {
-                        res.status(400).json({
-                            error: 'Time slot not available',
-                            message: 'The selected time slot is no longer available'
-                        });
-                        return;
-                    }
+                const date = updateData.reservation_date || existing.reservation_date;
+                const time = updateData.reservation_time || existing.reservation_time;
+                const size = updateData.party_size || existing.party_size;
+                const availableSlots = yield reservationModel_1.ReservationModel.getAvailableTimeSlots(existing.restaurant_id, date, size);
+                if (!availableSlots.includes(time)) {
+                    res.status(400).json({
+                        error: 'Time slot not available',
+                        message: 'The selected time slot is no longer available'
+                    });
+                    return;
                 }
             }
             const updatedReservation = yield reservationModel_1.ReservationModel.updateReservation(parseInt(id), updateData);
@@ -241,19 +233,27 @@ exports.ReservationController = {
             return;
         }
         try {
-            // First check if the reservation exists
             const reservation = yield reservationModel_1.ReservationModel.getReservationById(parseInt(id));
             if (!reservation) {
                 res.status(404).json({ error: 'Reservation not found' });
                 return;
             }
-            // Check if the reservation is already cancelled
             if (reservation.status === 'cancelled') {
                 res.status(400).json({ error: 'Reservation is already cancelled' });
                 return;
             }
-            // Cancel the reservation
             const cancelledReservation = yield reservationModel_1.ReservationModel.cancelReservation(parseInt(id), cancellation_reason);
+            // Envoi de l'email de confirmation d'annulation
+            if (reservation.customer_email) {
+                try {
+                    yield (0, mailService_1.sendReservationCancellation)(reservation.customer_email, reservation.customer_name);
+                    logger_1.logger.info(`E-mail d'annulation envoyé à ${reservation.customer_email}`);
+                }
+                catch (emailError) {
+                    logger_1.logger.error(`Erreur lors de l'envoi du mail d'annulation : ${emailError.message}`);
+                    // Ne pas bloquer l'annulation si l'email échoue
+                }
+            }
             res.status(200).json({
                 message: 'Reservation cancelled successfully',
                 reservation: cancelledReservation
@@ -261,10 +261,7 @@ exports.ReservationController = {
         }
         catch (error) {
             logger_1.logger.error(`Error cancelling reservation: ${error.message}`);
-            res.status(500).json({
-                error: 'An error occurred while cancelling the reservation',
-                details: error.message
-            });
+            res.status(500).json({ error: 'Error cancelling reservation', details: error.message });
         }
     })
 };

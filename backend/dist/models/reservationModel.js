@@ -397,5 +397,26 @@ exports.ReservationModel = {
         });
         // If we have at least one table available, the time slot is available
         return availableTables.length > 0;
+    },
+    updateTableStatus(tableId, status) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const sql = `
+                UPDATE restaurant_tables
+                   SET status     = $1,
+                       updated_at = NOW()
+                 WHERE id = $2
+            `;
+                const res = yield database_1.default.query(sql, [status, tableId]);
+                if (res.rowCount === 0) {
+                    throw new Error(`Table ${tableId} non trouvée pour updateTableStatus`);
+                }
+                logger_1.logger.success(`Table ${tableId} status mis à jour en '${status}'`);
+            }
+            catch (error) {
+                logger_1.logger.error(`updateTableStatus error: ${error.message}`);
+                throw error;
+            }
+        });
     }
 };

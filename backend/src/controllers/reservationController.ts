@@ -67,12 +67,20 @@ export const ReservationController = {
 
             const restaurant = await RestaurantModel.getRestaurantById(restaurant_id);
 
+            // 2) Mise à jour du statut de la table pour que /api/pico/status renvoie la bonne table
+            await ReservationModel.updateTableStatus(reservation.table_id, 'reserved');
+            logger.info(`Table ${reservation.table_id} set to \"reserved\" after booking #${reservation.id}`);
+
             await sendReservationConfirmation(customer_email, {
                 date: reservation_date,
                 time: reservation_time,
                 restaurantName: restaurant.restaurant_name,
                 restaurantAddress: restaurant.address
             });
+            // 4) Marquer la table comme réservée pour que /api/pico/status voit ce changement
+            +    await ReservationModel.updateTableStatus(reservation.table_id, 'reserved');
+            +    logger.info(`Table ${reservation.table_id} marquée en reserved via web UI`);
+
 
             res.status(201).json({
                 message: 'Reservation created successfully',

@@ -466,5 +466,23 @@ export const ReservationModel = {
 
         // If we have at least one table available, the time slot is available
         return availableTables.length > 0;
+    },
+    async updateTableStatus(tableId: number, status: 'reserved' | 'free'): Promise<void> {
+        try {
+            const sql = `
+                UPDATE restaurant_tables
+                   SET status     = $1,
+                       updated_at = NOW()
+                 WHERE id = $2
+            `;
+            const res = await db.query(sql, [status, tableId]);
+            if (res.rowCount === 0) {
+                throw new Error(`Table ${tableId} non trouvée pour updateTableStatus`);
+            }
+            logger.success(`Table ${tableId} status mis à jour en '${status}'`);
+        } catch (error: any) {
+            logger.error(`updateTableStatus error: ${error.message}`);
+            throw error;
+        }
     }
 };
