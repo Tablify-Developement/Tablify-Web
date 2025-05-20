@@ -54,19 +54,41 @@ export const loginUser = async (data: LoginData) => {
     }
 };
 
-// Existing methods (kept for compatibility)
+// Fetch user by ID
 export const fetchUsersById = async (id_utilisateur: string) => {
     try {
         const response = await axios.get(`${API_BASE_URL}/users/${id_utilisateur}`);
         console.log("Raw API response: ", response.data);
 
+        // Handle the case where response.data is not an array
+        if (!Array.isArray(response.data)) {
+            // If response.data is a single user object, wrap it in an array
+            if (response.data && typeof response.data === 'object') {
+                // Return the user object in an array format with proper property mapping
+                return [{
+                    id_utilisateur: response.data.id || response.data.id_utilisateur,
+                    nom: response.data.nom,
+                    prenom: response.data.prenom,
+                    mail: response.data.mail,
+                    role: response.data.role,
+                    notification: response.data.notification,
+                    langue: response.data.langue,
+                    date_naissance: response.data.date_naissance
+                }];
+            }
+            // If not a valid user object, return empty array
+            console.error("Unexpected API response format:", response.data);
+            return [];
+        }
+
+        // If it is an array, filter and map the data as before
         const filteredData = response.data.filter((utilisateur: any) =>
-            utilisateur.id_utilisateur === id_utilisateur
+            utilisateur.id_utilisateur === id_utilisateur || utilisateur.id === id_utilisateur
         );
         console.log("Filtered by id_utilisateur", filteredData);
 
         return filteredData.map((utilisateur: any) => ({
-            id_utilisateur: utilisateur.id_utilisateur,
+            id_utilisateur: utilisateur.id_utilisateur || utilisateur.id,
             nom: utilisateur.nom,
             prenom: utilisateur.prenom,
             mail: utilisateur.mail,
@@ -86,15 +108,22 @@ export const fetchUserByInteret = async (id_interet: string) => {
         const response = await axios.get(`${API_BASE_URL}/users/${id_interet}`);
         console.log("Raw API response: ", response.data);
 
+        // Handle the case where response.data is not an array
+        if (!Array.isArray(response.data)) {
+            // Return empty array if not expected format
+            console.error("Unexpected API response format:", response.data);
+            return [];
+        }
+
         const filteredData = response.data.filter((utilisateur: any) =>
-            utilisateur.id_utilisateur === id_interet
+            utilisateur.id_utilisateur === id_interet || utilisateur.id === id_interet
         );
 
         console.log("Filtered by id_interet", filteredData);
 
         return filteredData.map((utilisateur: any) => ({
             id_interet: utilisateur.id_interet,
-            id_utilisateur: utilisateur.id_utilisateur,
+            id_utilisateur: utilisateur.id_utilisateur || utilisateur.id,
             nom: utilisateur.nom,
             prenom: utilisateur.prenom,
             mail: utilisateur.mail,
