@@ -5,6 +5,10 @@ import { logger } from '../utils/logger';
 import path from "path";
 import fs from "fs";
 
+interface FileRequest extends Request {
+    file?: Express.Multer.File;
+}
+
 // Controller for restaurant-related operations
 export const RestaurantController = {
     // Get restaurants for the current authenticated user
@@ -358,11 +362,11 @@ export const RestaurantController = {
     },
 
     // Add to your RestaurantController
-    uploadRestaurantImage: async (req: Request, res: Response): Promise<void> => {
+    uploadRestaurantImage: async (req: FileRequest, res: Response) => {
         const { id } = req.params;
 
         if (!id) {
-            res.status(400).json({ error: 'Restaurant ID is required' });
+            res.status(400).json({ error: 'Restauran    t ID is required' });
             return;
         }
 
