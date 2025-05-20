@@ -399,7 +399,7 @@ export const RestaurantController = {
         }
     },
 
-    deleteRestaurantImage: async (req: FileRequest, res: Response): Promise<void> => {
+    deleteRestaurantImage: async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
 
         if (!id) {
@@ -426,7 +426,7 @@ export const RestaurantController = {
         }
     },
 
-    getRestaurantImage: async (req: FileRequest, res: Response): Promise<void> => {
+    getRestaurantImage: async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
 
         if (!id) {
