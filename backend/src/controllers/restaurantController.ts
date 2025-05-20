@@ -2,6 +2,8 @@
 import { Request, Response } from 'express';
 import { RestaurantModel } from '../models/restaurantModel';
 import { logger } from '../utils/logger';
+import path from "path";
+import fs from "fs";
 
 // Controller for restaurant-related operations
 export const RestaurantController = {
@@ -354,4 +356,87 @@ export const RestaurantController = {
             res.status(500).json({ error: 'An error occurred while updating restaurant settings' });
         }
     },
+
+    // Add to your RestaurantController
+    uploadRestaurantImage: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        if (!req.file) {
+            res.status(400).json({ error: 'Image file is required' });
+            return;
+        }
+
+        try {
+            // Get just the filename part
+            const imagePath = path.basename(req.file.path);
+
+            // Check if restaurant exists
+            const restaurant = await RestaurantModel.getRestaurantById(Number(id));
+            if (!restaurant) {
+                res.status(404).json({ error: 'Restaurant not found' });
+                return;
+            }
+
+            // Save the image path to the database
+            await RestaurantModel.saveRestaurantImage(Number(id), imagePath);
+
+            res.status(200).json({
+                message: 'Restaurant image uploaded successfully',
+                image: imagePath
+            });
+        } catch (error: any) {
+            logger.error(`Error uploading restaurant image: ${error.message}`);
+            res.status(500).json({ error: 'An error occurred while uploading the restaurant image' });
+        }
+    },
+
+    deleteRestaurantImage: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        try {
+            // Get the current image filename and delete from database
+            const filename = await RestaurantModel.deleteRestaurantImage(Number(id));
+
+            if (filename) {
+                // Delete the physical file if it exists
+                const imagePath = path.join(__dirname, '../../public/uploads', filename);
+                if (fs.existsSync(imagePath)) {
+                    fs.unlinkSync(imagePath);
+                }
+            }
+
+            res.status(200).json({ message: 'Restaurant image removed successfully' });
+        } catch (error: any) {
+            logger.error(`Error deleting restaurant image: ${error.message}`);
+            res.status(500).json({ error: 'An error occurred while deleting the restaurant image' });
+        }
+    },
+
+    getRestaurantImage: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        try {
+            const filename = await RestaurantModel.getRestaurantImage(Number(id));
+
+            res.status(200).json({ image: filename });
+        } catch (error: any) {
+            logger.error(`Error fetching restaurant image: ${error.message}`);
+            res.status(500).json({ error: 'An error occurred while fetching the restaurant image' });
+        }
+    }
 };

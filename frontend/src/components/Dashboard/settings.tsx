@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     Card,
     CardContent,
@@ -29,16 +29,18 @@ import { Textarea } from '@/components/ui/textarea';
 import {
     Save,
     Building,
-    DollarSign,
     Phone,
     MapPin,
     FileText,
-    CreditCard,
     Loader2,
-    Settings
+    Settings,
+    ImageIcon,
+    Upload,
+    X
 } from 'lucide-react';
 import { fetchRestaurantSettings, updateRestaurantSettings } from '@/services/restaurantService';
 import { useRestaurant } from '@/context/restaurant-context';
+import axios from 'axios';
 
 // Define the type for restaurant settings
 interface RestaurantSettings {
@@ -47,42 +49,49 @@ interface RestaurantSettings {
     address: string;
     contact: string;
     description: string;
-    currency: string;
-    tax_rate: string | number;
 }
 
-// List of currencies
-const CURRENCIES = [
-    { code: 'USD', symbol: '$', name: 'US Dollar' },
-    { code: 'EUR', symbol: '€', name: 'Euro' },
-    { code: 'GBP', symbol: '£', name: 'British Pound' },
-    { code: 'CAD', symbol: '$', name: 'Canadian Dollar' },
-    { code: 'AUD', symbol: '$', name: 'Australian Dollar' },
-    { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-    { code: 'CNY', symbol: '¥', name: 'Chinese Yuan' },
-    { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-    { code: 'BRL', symbol: 'R$', name: 'Brazilian Real' },
-    { code: 'MXN', symbol: '$', name: 'Mexican Peso' },
-];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export default function SettingsPage() {
     const { selectedRestaurant } = useRestaurant();
     const restaurantId = selectedRestaurant?.id || 0;
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [settings, setSettings] = useState<RestaurantSettings>({
         restaurant_name: '',
         restaurant_type: '',
         address: '',
         contact: '',
-        description: '',
-        currency: 'USD',
-        tax_rate: '0.0'
+        description: ''
     });
 
+    const [currentImage, setCurrentImage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isImageLoading, setIsImageLoading] = useState(false);
 
+    // Fetch restaurant image
+    const fetchRestaurantImage = async () => {
+        if (!restaurantId) return;
+
+        try {
+            const response = await axios.get(`${API_BASE_URL}/restaurants/${restaurantId}/image`);
+            if (response.data && response.data.image) {
+                setCurrentImage(response.data.image);
+            } else {
+                setCurrentImage(null);
+            }
+        } catch (error) {
+            console.error("Error fetching restaurant image:", error);
+            setCurrentImage(null);
+        }
+    };
+
+    // Load settings and image
     useEffect(() => {
         const loadSettings = async () => {
             if (!restaurantId) {
@@ -92,10 +101,9 @@ export default function SettingsPage() {
                     restaurant_type: '',
                     address: '',
                     contact: '',
-                    description: '',
-                    currency: 'USD',
-                    tax_rate: '0.0'
+                    description: ''
                 });
+                setCurrentImage(null);
                 setIsLoading(false);
                 return;
             }
@@ -104,16 +112,16 @@ export default function SettingsPage() {
             setMessage({ type: '', text: '' });
 
             try {
+                // Fetch restaurant settings
                 const data = await fetchRestaurantSettings(restaurantId);
+
                 if (data) {
                     setSettings({
                         restaurant_name: data.restaurant_name || selectedRestaurant?.name || '',
                         restaurant_type: data.restaurant_type || selectedRestaurant?.plan || '',
                         address: data.address || '',
                         contact: data.contact || '',
-                        description: data.description || '',
-                        currency: data.currency || 'USD',
-                        tax_rate: data.tax_rate || '0.0'
+                        description: data.description || ''
                     });
                 } else {
                     // If no settings are found, use the basic restaurant info from context
@@ -122,11 +130,12 @@ export default function SettingsPage() {
                         restaurant_type: selectedRestaurant?.plan || '',
                         address: '',
                         contact: '',
-                        description: '',
-                        currency: 'USD',
-                        tax_rate: '0.0'
+                        description: ''
                     });
                 }
+
+                // Fetch restaurant image
+                await fetchRestaurantImage();
             } catch (error) {
                 console.error('Error loading settings:', error);
                 setMessage({
@@ -140,9 +149,7 @@ export default function SettingsPage() {
                     restaurant_type: selectedRestaurant?.plan || '',
                     address: '',
                     contact: '',
-                    description: '',
-                    currency: 'USD',
-                    tax_rate: '0.0'
+                    description: ''
                 });
             } finally {
                 setIsLoading(false);
@@ -152,11 +159,135 @@ export default function SettingsPage() {
         loadSettings();
     }, [restaurantId, selectedRestaurant]);
 
+    // Create preview when file selected
+    useEffect(() => {
+        if (!selectedFile) {
+            setPreviewUrl(null);
+            return;
+        }
+
+        const objectUrl = URL.createObjectURL(selectedFile);
+        setPreviewUrl(objectUrl);
+
+        // Free memory when this component unmounts
+        return () => URL.revokeObjectURL(objectUrl);
+    }, [selectedFile]);
+
     const handleChange = (field: keyof RestaurantSettings, value: string) => {
         setSettings(prev => ({
             ...prev,
             [field]: value
         }));
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) {
+            setSelectedFile(null);
+            return;
+        }
+
+        const file = e.target.files[0];
+
+        // Validate file type
+        if (!file.type.match('image.*')) {
+            setMessage({
+                type: 'error',
+                text: 'Please select an image file (JPEG, PNG, etc.)'
+            });
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setMessage({
+                type: 'error',
+                text: 'Image file is too large. Maximum size is 5MB.'
+            });
+            return;
+        }
+
+        setSelectedFile(file);
+        setMessage({ type: '', text: '' });
+    };
+
+    const handleUploadImage = async () => {
+        if (!selectedFile || !restaurantId) return;
+
+        setIsImageLoading(true);
+        setMessage({ type: '', text: '' });
+
+        try {
+            // Create form data for file upload
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            // Send the file to the backend
+            const response = await axios.post(
+                `${API_BASE_URL}/restaurants/${restaurantId}/image`,
+                formData,
+                {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    }
+                }
+            );
+
+            // Update current image with the new one
+            if (response.data && response.data.image) {
+                setCurrentImage(response.data.image);
+            }
+
+            // Reset file selection
+            setSelectedFile(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+
+            setMessage({
+                type: 'success',
+                text: 'Restaurant image uploaded successfully!'
+            });
+
+        } catch (error: any) {
+            console.error('Error uploading image:', error);
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.error || 'Failed to upload image. Please try again.'
+            });
+        } finally {
+            setIsImageLoading(false);
+        }
+    };
+
+    const handleRemoveImage = async () => {
+        if (!restaurantId) return;
+
+        setIsImageLoading(true);
+        setMessage({ type: '', text: '' });
+
+        try {
+            await axios.delete(`${API_BASE_URL}/restaurants/${restaurantId}/image`);
+            setCurrentImage(null);
+            setMessage({
+                type: 'success',
+                text: 'Restaurant image removed successfully!'
+            });
+        } catch (error: any) {
+            console.error('Error removing image:', error);
+            setMessage({
+                type: 'error',
+                text: error.response?.data?.error || 'Failed to remove image. Please try again.'
+            });
+        } finally {
+            setIsImageLoading(false);
+        }
+    };
+
+    const handleCancelUpload = () => {
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
     const handleSave = async () => {
@@ -184,8 +315,7 @@ export default function SettingsPage() {
 
             // Update restaurant settings
             await updateRestaurantSettings(restaurantId, {
-                ...settings,
-                tax_rate: typeof settings.tax_rate === 'number' ? settings.tax_rate.toString() : settings.tax_rate
+                ...settings
             });
 
             setMessage({
@@ -203,26 +333,11 @@ export default function SettingsPage() {
         }
     };
 
-    // Create a formatter for currency display
-    const getCurrencyFormatter = (currencyCode: string) => {
-        try {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: currencyCode,
-                minimumFractionDigits: 2
-            });
-        } catch (error) {
-            // Fallback for unsupported currencies
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                minimumFractionDigits: 2
-            });
-        }
+    // Get full image URL or placeholder
+    const getImageUrl = () => {
+        if (!currentImage) return null;
+        return `${API_BASE_URL}/uploads/${currentImage}`;
     };
-
-    // Current currency selection
-    const selectedCurrency = CURRENCIES.find(c => c.code === settings.currency) || CURRENCIES[0];
 
     return (
         <div className="space-y-6">
@@ -269,7 +384,7 @@ export default function SettingsPage() {
                 <Tabs defaultValue="general" className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="general">General Information</TabsTrigger>
-                        <TabsTrigger value="financial">Financial Settings</TabsTrigger>
+                        <TabsTrigger value="appearance">Appearance</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="general" className="mt-6 space-y-6">
@@ -373,89 +488,108 @@ export default function SettingsPage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="financial" className="mt-6 space-y-6">
+                    <TabsContent value="appearance" className="mt-6 space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Financial Settings</CardTitle>
+                                <CardTitle>Restaurant Image</CardTitle>
                                 <CardDescription>
-                                    Configure your restaurant's financial preferences.
+                                    Upload an image for your restaurant to display to customers
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="currency">
-                                            Currency
-                                        </Label>
-                                        <Select
-                                            value={settings.currency}
-                                            onValueChange={(value) => handleChange('currency', value)}
-                                        >
-                                            <SelectTrigger id="currency" className="relative">
-                                                <CreditCard className="absolute left-2 h-4 w-4 text-muted-foreground" />
-                                                <div className="pl-6">
-                                                    <SelectValue placeholder="Select currency" />
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Current/Preview Image */}
+                                    <div className="flex flex-col items-center justify-center">
+                                        <div className="border rounded-md w-full aspect-video overflow-hidden bg-muted flex items-center justify-center relative">
+                                            {isImageLoading ? (
+                                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                            ) : previewUrl ? (
+                                                <img
+                                                    src={previewUrl}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            ) : getImageUrl() ? (
+                                                <img
+                                                    src={getImageUrl()!}
+                                                    alt="Restaurant"
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            ) : (
+                                                <div className="flex flex-col items-center text-muted-foreground">
+                                                    <ImageIcon className="h-12 w-12 mb-2" />
+                                                    <span>No image uploaded</span>
                                                 </div>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {CURRENCIES.map((currency) => (
-                                                    <SelectItem key={currency.code} value={currency.code}>
-                                                        {currency.symbol} {currency.code} - {currency.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            )}
+                                        </div>
+
+                                        {currentImage && !previewUrl && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="mt-2"
+                                                onClick={handleRemoveImage}
+                                                disabled={isImageLoading}
+                                            >
+                                                <X className="mr-2 h-4 w-4" />
+                                                Remove Image
+                                            </Button>
+                                        )}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="tax_rate">
-                                            Tax Rate (%)
-                                        </Label>
-                                        <div className="relative">
-                                            <DollarSign className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    {/* Upload Controls */}
+                                    <div className="space-y-4">
+                                        <div className="grid w-full items-center gap-1.5">
+                                            <Label htmlFor="restaurant-image">Upload Image</Label>
                                             <Input
-                                                id="tax_rate"
-                                                type="number"
-                                                min="0"
-                                                step="0.01"
-                                                value={Number(settings.tax_rate) * 100} // Convert to percentage for display
-                                                onChange={(e) => {
-                                                    const value = parseFloat(e.target.value);
-                                                    // Convert from percentage back to decimal
-                                                    const taxRate = !isNaN(value) ? (value / 100).toString() : '0';
-                                                    handleChange('tax_rate', taxRate);
-                                                }}
-                                                placeholder="Enter tax rate percentage"
-                                                className="pl-8"
+                                                id="restaurant-image"
+                                                type="file"
+                                                accept="image/*"
+                                                ref={fileInputRef}
+                                                onChange={handleFileChange}
+                                                disabled={isImageLoading}
                                             />
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Max size: 5MB. Accepted formats: JPEG, PNG, GIF
+                                            </p>
                                         </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            This tax rate will be applied to all orders.
-                                        </p>
-                                    </div>
-                                </div>
 
-                                <div className="bg-muted p-4 rounded-md mt-4">
-                                    <h3 className="font-medium mb-2">Sample Order Calculation</h3>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between text-sm">
-                                            <span>Subtotal:</span>
-                                            <span>{getCurrencyFormatter(settings.currency).format(100)}</span>
-                                        </div>
-                                        <div className="flex justify-between text-sm">
-                                            <span>Tax ({(Number(settings.tax_rate) * 100).toFixed(2)}%):</span>
-                                            <span>{getCurrencyFormatter(settings.currency).format(Number(settings.tax_rate) * 100)}</span>
-                                        </div>
-                                        <div className="flex justify-between font-medium">
-                                            <span>Total:</span>
-                                            <span>{getCurrencyFormatter(settings.currency).format(100 + (Number(settings.tax_rate) * 100))}</span>
+                                        <div className="flex gap-2">
+                                            {selectedFile && (
+                                                <>
+                                                    <Button
+                                                        onClick={handleUploadImage}
+                                                        disabled={isImageLoading}
+                                                        className="w-full"
+                                                    >
+                                                        {isImageLoading ? (
+                                                            <>
+                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                                Uploading...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Upload className="mr-2 h-4 w-4" />
+                                                                Upload Image
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        onClick={handleCancelUpload}
+                                                        disabled={isImageLoading}
+                                                    >
+                                                        Cancel
+                                                    </Button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="flex justify-between border-t px-6 py-4">
+                            <CardFooter>
                                 <p className="text-sm text-muted-foreground">
-                                    These settings will be applied to all new transactions.
+                                    This image will be displayed on your restaurant's profile and booking pages.
                                 </p>
                             </CardFooter>
                         </Card>

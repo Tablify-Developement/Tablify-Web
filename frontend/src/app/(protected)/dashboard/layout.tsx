@@ -1,3 +1,4 @@
+// File: src/app/(protected)/dashboard/layout.tsx
 'use client';
 
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
