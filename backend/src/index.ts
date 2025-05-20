@@ -22,8 +22,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded images
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Development request logging
 if (process.env.NODE_ENV !== 'production') {
@@ -34,11 +33,11 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // Register routes
-app.use('/services', testRoutes);
+app.use('/api/services', testRoutes);
 app.use('/api', testRoutes);
-app.use('/users', utilisateurRoutes);
-app.use('/restaurants', restaurantRoutes);
-app.use('/reservations', reservationRoutes);
+app.use('/api/users', utilisateurRoutes);
+app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 // Health check endpoints
 app.get('/', (_req: Request, res: Response) => {

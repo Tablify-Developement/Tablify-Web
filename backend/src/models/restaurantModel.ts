@@ -559,5 +559,94 @@ export const RestaurantModel = {
             logger.error(`Error updating restaurant settings: ${error.message}`);
             throw error;
         }
+    },
+
+    async getRestaurantImage(restaurant_id: number) {
+        try {
+            const query = `
+            SELECT filename FROM restaurant_images
+            WHERE restaurant_id = $1
+        `;
+
+            const result = await db.query(query, [restaurant_id]);
+
+            if (result.rows.length === 0) {
+                return null;
+            }
+
+            logger.success('Restaurant image fetched successfully.');
+            return result.rows[0].filename;
+        } catch (error: any) {
+            logger.error(`Error fetching restaurant image: ${error.message}`);
+            throw error;
+        }
+    },
+
+    async saveRestaurantImage(restaurant_id: number, filename: string) {
+        try {
+            // First check if there's an existing image
+            const client = await db.getClient();
+
+            try {
+                await client.query('BEGIN');
+
+                // Check for existing image
+                const existingImage = await client.query(
+                    'SELECT * FROM restaurant_images WHERE restaurant_id = $1',
+                    [restaurant_id]
+                );
+
+                let result;
+                if (existingImage.rows.length > 0) {
+                    // Update existing record
+                    result = await client.query(
+                        'UPDATE restaurant_images SET filename = $1 WHERE restaurant_id = $2 RETURNING *',
+                        [filename, restaurant_id]
+                    );
+                } else {
+                    // Insert new record
+                    result = await client.query(
+                        'INSERT INTO restaurant_images(restaurant_id, filename) VALUES($1, $2) RETURNING *',
+                        [restaurant_id, filename]
+                    );
+                }
+
+                await client.query('COMMIT');
+
+                logger.success('Restaurant image saved successfully.');
+                return result.rows[0];
+            } catch (error) {
+                await client.query('ROLLBACK');
+                throw error;
+            } finally {
+                client.release();
+            }
+        } catch (error: any) {
+            logger.error(`Error saving restaurant image: ${error.message}`);
+            throw error;
+        }
+    },
+
+    async deleteRestaurantImage(restaurant_id: number) {
+        try {
+            const query = `
+            DELETE FROM restaurant_images 
+            WHERE restaurant_id = $1
+            RETURNING filename
+        `;
+
+            const result = await db.query(query, [restaurant_id]);
+
+            if (result.rows.length === 0) {
+                return null;
+            }
+
+            logger.success('Restaurant image deleted successfully.');
+            return result.rows[0].filename;
+        } catch (error: any) {
+            logger.error(`Error deleting restaurant image: ${error.message}`);
+            throw error;
+        }
     }
+
 };

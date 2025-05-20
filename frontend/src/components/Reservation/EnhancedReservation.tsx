@@ -36,7 +36,8 @@ import {
     Phone,
     Loader2,
     Filter,
-    ChevronRight
+    ChevronRight,
+    ImageIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ import {
     getAvailableTablesForTime
 } from '@/services/reservationService';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
 
 interface Restaurant {
     id: number;
@@ -92,10 +94,13 @@ interface ReservationFormData {
 // Booking steps enum
 type BookingStep = 'datetime' | 'table' | 'contact';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 export default function EnhancedBookingPage() {
     const router = useRouter();
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
+    const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -128,6 +133,27 @@ export default function EnhancedBookingPage() {
         table_id: undefined
     });
 
+    // Fetch restaurant image
+    const fetchRestaurantImage = async (restaurantId: number) => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/restaurants/${restaurantId}/image`);
+            if (response.data && response.data.image) {
+                return response.data.image;
+            }
+            return null;
+        } catch (error) {
+            console.error(`Error fetching image for restaurant ${restaurantId}:`, error);
+            return null;
+        }
+    };
+
+    // Get restaurant image URL
+    const getRestaurantImageUrl = (restaurantId: number) => {
+        const imageFilename = restaurantImages[restaurantId];
+        if (!imageFilename) return null;
+        return `${API_BASE_URL}/uploads/${imageFilename}`;
+    };
+
     // Load restaurants on mount
     useEffect(() => {
         const fetchRestaurants = async () => {
@@ -145,6 +171,20 @@ export default function EnhancedBookingPage() {
 
                 setRestaurants(transformedData);
                 setFilteredRestaurants(transformedData);
+
+                // Fetch images for all restaurants
+                const imagesPromises = transformedData.map(async restaurant => {
+                    const image = await fetchRestaurantImage(restaurant.id);
+                    return { id: restaurant.id, image };
+                });
+
+                const imagesResults = await Promise.all(imagesPromises);
+                const imagesMap: Record<number, string | null> = {};
+                imagesResults.forEach(item => {
+                    imagesMap[item.id] = item.image;
+                });
+
+                setRestaurantImages(imagesMap);
             } catch (error) {
                 console.error('Error fetching restaurants:', error);
                 setRestaurants([]);
@@ -483,9 +523,9 @@ export default function EnhancedBookingPage() {
                         <Card key={restaurant.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                             {/* Restaurant card content */}
                             <div className="h-48 bg-muted relative">
-                                {restaurant.image ? (
+                                {getRestaurantImageUrl(restaurant.id) ? (
                                     <img
-                                        src={restaurant.image}
+                                        src={getRestaurantImageUrl(restaurant.id)!}
                                         alt={restaurant.name}
                                         className="w-full h-full object-cover"
                                     />
@@ -541,6 +581,27 @@ export default function EnhancedBookingPage() {
                             {bookingStep === 'contact' && "Enter your contact information."}
                         </DialogDescription>
                     </DialogHeader>
+
+                    {/* Restaurant Image in Dialog */}
+                    {selectedRestaurant && (
+                        <div className="mb-4 h-40 relative rounded-md overflow-hidden">
+                            {getRestaurantImageUrl(selectedRestaurant.id) ? (
+                                <img
+                                    src={getRestaurantImageUrl(selectedRestaurant.id)!}
+                                    alt={selectedRestaurant.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-muted">
+                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                </div>
+                            )}
+                            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent">
+                                <p className="text-white font-medium">{selectedRestaurant.name}</p>
+                                <p className="text-white/80 text-xs">{selectedRestaurant.address}</p>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Loading state */}
                     {isHoursLoading ? (
@@ -659,6 +720,7 @@ export default function EnhancedBookingPage() {
                                 </div>
                             )}
 
+                            {/* The rest of your steps remain the same */}
                             {/* Table Selection Step */}
                             {bookingStep === 'table' && (
                                 <div className="space-y-4">

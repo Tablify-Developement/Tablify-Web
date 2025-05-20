@@ -3,6 +3,48 @@ import express from 'express';
 import { RestaurantController } from '../controllers/restaurantController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, '../../public/uploads');
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        // Create unique filename with timestamp and original extension
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = path.extname(file.originalname);
+        cb(null, `restaurant-${req.params.id}-${uniqueSuffix}${ext}`);
+    }
+});
+
+// Filter to accept only image files
+const fileFilter = (req: any, file: any, cb: any) => {
+    if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+    } else {
+        cb(new Error('Only image files are allowed!'), false);
+    }
+};
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB limit
+    },
+    fileFilter: fileFilter
+});
+
+
+
+
 const router = express.Router();
 
 // Modify the getRestaurants method to fetch all restaurants without filtering
@@ -34,5 +76,11 @@ router.put('/:id/hours', authMiddleware, RestaurantController.updateRestaurantHo
 // Restaurant Settings
 router.get('/:id/settings', RestaurantController.getRestaurantSettings);
 router.put('/:id/settings', authMiddleware, RestaurantController.updateRestaurantSettings);
+
+// Add these routes to your existing routes
+// Add these routes to your existing restaurantRoutes.ts
+router.post('/:id/image', authMiddleware, upload.single('image'), RestaurantController.uploadRestaurantImage);
+router.delete('/:id/image', authMiddleware, RestaurantController.deleteRestaurantImage);
+router.get('/:id/image', RestaurantController.getRestaurantImage);
 
 export default router;
