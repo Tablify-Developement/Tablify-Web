@@ -833,7 +833,7 @@ export default function EnhancedBookingPage() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="customer_phone">
-                                                Phone Number (Optionnal)
+                                                Phone Number *
                                             </Label>
                                             <Input
                                                 id="customer_phone"

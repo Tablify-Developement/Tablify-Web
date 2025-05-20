@@ -423,53 +423,65 @@ export default function ReservationsPage() {
     };
 
     // Change reservation status
-    const handleStatusChange = async (reservationId: number, newStatus: 'confirmed' | 'pending' | 'cancelled' | 'completed') => {
+    const handleStatusChange = async (
+        reservationId: number,
+        newStatus: 'confirmed' | 'pending' | 'cancelled' | 'completed'
+    ) => {
         try {
             console.log(`Changing reservation ${reservationId} status to ${newStatus}`);
 
             let updatedReservation;
 
-            // Use the appropriate API method for cancellation
             if (newStatus === 'cancelled') {
                 try {
-                    // Try to use the dedicated cancel endpoint if available
                     await cancelReservation(reservationId);
                     updatedReservation = { status: 'cancelled' };
                 } catch (cancelError) {
                     console.warn('Cancel endpoint failed, falling back to update:', cancelError);
-                    // If the cancel endpoint fails, fall back to standard update
                     updatedReservation = await updateReservation(reservationId, { status: newStatus });
                 }
             } else {
-                // Standard update for other status changes
                 updatedReservation = await updateReservation(reservationId, { status: newStatus });
             }
 
             console.log('Status change resulted in:', updatedReservation);
 
-            // Update local state with defensive coding
             setReservations(prev =>
-                prev.map(res =>
-                    res.id === reservationId
-                        ? {
-                            ...res, // Keep original reservation properties
-                            // Update status while preserving other data if not present in response
-                            status: (updatedReservation?.status as 'confirmed' | 'pending' | 'cancelled' | 'completed') || newStatus,
-                            // Only update these fields if they exist in the response
-                            customer_name: updatedReservation?.customer_name || res.customer_name,
-                            customer_phone: updatedReservation?.contact || res.customer_phone,
-                            reservation_date: updatedReservation?.date || res.reservation_date,
-                            reservation_time: updatedReservation?.time || res.reservation_time,
-                            party_size: updatedReservation?.guests || res.party_size,
-                            table_id: updatedReservation?.table_id || res.table_id,
-                            table_number: updatedReservation?.table_id ? updatedReservation.table_id.toString() : res.table_number,
-                            special_requests: updatedReservation?.notes || res.special_requests
-                        }
-                        : res
-                )
+                prev.map(res => {
+                    if (res.id !== reservationId) return res;
+
+                    const updated = {
+                        ...res,
+                        status: (updatedReservation?.status as 'confirmed' | 'pending' | 'cancelled' | 'completed') || newStatus,
+                        customer_name: updatedReservation?.customer_name || res.customer_name,
+                        customer_phone: updatedReservation?.contact || res.customer_phone,
+                        reservation_date: updatedReservation?.date || res.reservation_date,
+                        reservation_time: updatedReservation?.time || res.reservation_time,
+                        party_size: updatedReservation?.guests || res.party_size,
+                        table_id: updatedReservation?.table_id || res.table_id,
+                        table_number: updatedReservation?.table_id ? updatedReservation.table_id.toString() : res.table_number,
+                        special_requests: updatedReservation?.notes || res.special_requests
+                    };
+
+                    // Construire la date de début complète
+                    const startDateTime = new Date(`${updated.reservation_date}T${updated.reservation_time}`);
+
+                    // Ajouter 1h30 à la date de début pour obtenir l'heure de fin
+                    const endDateTime = new Date(startDateTime.getTime() + 90 * 60 * 1000); // 90 minutes en ms
+                    const now = new Date(); // Heure actuelle (Belgique déjà configurée)
+
+                    // Si la réservation est terminée et encore marquée comme "confirmed" ou "pending"
+                    if (
+                        endDateTime < now &&
+                        (updated.status === 'confirmed' || updated.status === 'pending')
+                    ) {
+                        return { ...updated, status: 'completed' };
+                    }
+
+                    return updated;
+                })
             );
 
-            // Optionally reload data after a short delay to ensure consistency with server
             setTimeout(() => {
                 loadData();
             }, 500);
@@ -477,6 +489,9 @@ export default function ReservationsPage() {
             console.error('Error updating reservation status:', error);
         }
     };
+
+
+
 
     // Pagination calculation
     const paginatedReservations = filteredReservations.slice(
