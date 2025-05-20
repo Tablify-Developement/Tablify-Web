@@ -833,7 +833,7 @@ export default function EnhancedBookingPage() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="customer_phone">
-                                                Phone Number *
+                                                Phone Number (Optionnal)
                                             </Label>
                                             <Input
                                                 id="customer_phone"
@@ -846,7 +846,7 @@ export default function EnhancedBookingPage() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="customer_email">
-                                                Email (Optional)
+                                                Email *
                                             </Label>
                                             <Input
                                                 id="customer_email"
