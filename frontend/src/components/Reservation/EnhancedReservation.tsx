@@ -39,7 +39,7 @@ import {
     ChevronRight,
     ImageIcon
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays, startOfDay, isAfter, isBefore } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { fetchAllRestaurants, fetchRestaurantTables } from '@/services/restaurantService';
 import {
@@ -120,13 +120,13 @@ export default function EnhancedBookingPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    // Reservation form state
+    // Reservation form state with proper date initialization
     const [reservationForm, setReservationForm] = useState<ReservationFormData>({
         restaurant_id: 0,
         customer_name: '',
         customer_phone: '',
         customer_email: '',
-        date: new Date(),
+        date: startOfDay(new Date()),
         time: '',
         party_size: 2,
         special_requests: '',
@@ -152,6 +152,25 @@ export default function EnhancedBookingPage() {
         const imageFilename = restaurantImages[restaurantId];
         if (!imageFilename) return null;
         return `${API_BASE_URL}/uploads/${imageFilename}`;
+    };
+
+    // Improved date validation function
+    const isDateDisabled = (date: Date) => {
+        const today = startOfDay(new Date());
+        const selectedDate = startOfDay(date);
+
+        // Disable past dates (before today)
+        if (isBefore(selectedDate, today)) {
+            return true;
+        }
+
+        // Optionally, disable dates too far in the future (e.g., 3 months)
+        const maxDate = addDays(today, 90); // 3 months ahead
+        if (isAfter(selectedDate, maxDate)) {
+            return true;
+        }
+
+        return false;
     };
 
     // Load restaurants on mount
@@ -225,7 +244,7 @@ export default function EnhancedBookingPage() {
         setReservationForm({
             ...reservationForm,
             restaurant_id: restaurant.id,
-            date: new Date(),
+            date: startOfDay(new Date()),
             time: '',
             table_id: undefined
         });
@@ -237,7 +256,7 @@ export default function EnhancedBookingPage() {
             setAllTables(tablesData);
 
             // Get available time slots for today
-            const formattedDate = format(new Date(), 'yyyy-MM-dd');
+            const formattedDate = format(startOfDay(new Date()), 'yyyy-MM-dd');
             const timeSlots = await getAvailableTimeSlots(
                 restaurant.id,
                 formattedDate,
@@ -254,21 +273,30 @@ export default function EnhancedBookingPage() {
         }
     };
 
-    // Handle date change
+    // Improved date change handler
     const handleDateChange = async (date: Date | undefined) => {
-        if (!date || !selectedRestaurant) return;
+        console.log('Date change handler called with:', date);
 
-        setReservationForm({
-            ...reservationForm,
-            date,
+        if (!date || !selectedRestaurant) {
+            console.log('Exiting early - no date or restaurant');
+            return;
+        }
+
+        // Ensure we're working with the start of the day
+        const selectedDate = startOfDay(date);
+
+        setReservationForm(prev => ({
+            ...prev,
+            date: selectedDate,
             time: '', // Reset time when date changes
             table_id: undefined // Reset table selection
-        });
+        }));
         setAvailableTables([]);
 
         try {
             // Format date for API
-            const formattedDate = format(date, 'yyyy-MM-dd');
+            const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+            console.log('Fetching time slots for date:', formattedDate);
 
             // Get available time slots using the service
             const timeSlots = await getAvailableTimeSlots(
@@ -277,22 +305,24 @@ export default function EnhancedBookingPage() {
                 reservationForm.party_size
             );
 
+            console.log('Received time slots:', timeSlots);
             setAvailableTimeSlots(timeSlots);
         } catch (error) {
             console.error('Error fetching available time slots:', error);
             setAvailableTimeSlots([]);
         }
 
+        // Close the date picker
         setDatePickerOpen(false);
     };
 
     // Handle party size change
     const handlePartySizeChange = async (size: number) => {
-        setReservationForm({
-            ...reservationForm,
+        setReservationForm(prev => ({
+            ...prev,
             party_size: size,
             table_id: undefined // Reset table selection when party size changes
-        });
+        }));
         setAvailableTables([]);
 
         // If date is selected, update available times for new party size
@@ -313,11 +343,11 @@ export default function EnhancedBookingPage() {
 
     // Handle time selection
     const handleTimeSelection = async (time: string) => {
-        setReservationForm({
-            ...reservationForm,
+        setReservationForm(prev => ({
+            ...prev,
             time,
             table_id: undefined // Reset table selection when time changes
-        });
+        }));
 
         if (selectedRestaurant) {
             await findAvailableTables(
@@ -353,19 +383,19 @@ export default function EnhancedBookingPage() {
 
     // Handle table selection
     const handleTableSelection = (tableId: number) => {
-        setReservationForm({
-            ...reservationForm,
+        setReservationForm(prev => ({
+            ...prev,
             table_id: tableId
-        });
+        }));
     };
 
     // Handle form field changes
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setReservationForm({
-            ...reservationForm,
+        setReservationForm(prev => ({
+            ...prev,
             [name]: value,
-        });
+        }));
     };
 
     // Navigate to next step
@@ -394,7 +424,7 @@ export default function EnhancedBookingPage() {
         // Validate form
         if (
             !reservationForm.customer_name ||
-            !reservationForm.customer_phone ||
+            !reservationForm.customer_email ||
             !reservationForm.time ||
             !reservationForm.party_size ||
             !reservationForm.table_id
@@ -437,13 +467,15 @@ export default function EnhancedBookingPage() {
                     customer_name: '',
                     customer_phone: '',
                     customer_email: '',
-                    date: new Date(),
+                    date: startOfDay(new Date()),
                     time: '',
                     party_size: 2,
                     special_requests: '',
                     table_id: undefined
                 });
                 setAvailableTables([]);
+                setBookingStep('datetime');
+                setMessage({ type: '', text: '' });
             }, 2000);
 
         } catch (error) {
@@ -470,6 +502,15 @@ export default function EnhancedBookingPage() {
             default: return type.charAt(0).toUpperCase() + type.slice(1);
         }
     };
+
+    // Debug effect to monitor date picker state
+    useEffect(() => {
+        console.log('Date picker state:', {
+            datePickerOpen,
+            selectedDate: reservationForm.date,
+            formattedDate: reservationForm.date ? format(reservationForm.date, 'PPP') : 'No date'
+        });
+    }, [datePickerOpen, reservationForm.date]);
 
     return (
         <div className="container mx-auto py-8 px-4">
@@ -570,7 +611,7 @@ export default function EnhancedBookingPage() {
 
             {/* Booking Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[550px]">
+                <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
                             {selectedRestaurant ? `Make Reservation at ${selectedRestaurant.name}` : 'Make Reservation'}
@@ -623,7 +664,7 @@ export default function EnhancedBookingPage() {
                             {/* Step content based on current booking step */}
                             {bookingStep === 'datetime' && (
                                 <div className="space-y-4">
-                                    {/* Date Picker */}
+                                    {/* Fixed Date Picker */}
                                     <div className="space-y-2">
                                         <Label htmlFor="date">Date *</Label>
                                         <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
@@ -631,7 +672,15 @@ export default function EnhancedBookingPage() {
                                                 <Button
                                                     id="date"
                                                     variant="outline"
-                                                    className="w-full justify-start text-left font-normal"
+                                                    type="button"
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal",
+                                                        !reservationForm.date && "text-muted-foreground"
+                                                    )}
+                                                    onClick={() => {
+                                                        console.log('Date picker button clicked');
+                                                        setDatePickerOpen(!datePickerOpen);
+                                                    }}
                                                 >
                                                     <CalendarIcon className="mr-2 h-4 w-4" />
                                                     {reservationForm.date ? (
@@ -641,17 +690,14 @@ export default function EnhancedBookingPage() {
                                                     )}
                                                 </Button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
+                                            <PopoverContent className="w-auto p-0" align="start" side="bottom">
                                                 <Calendar
                                                     mode="single"
                                                     selected={reservationForm.date}
                                                     onSelect={handleDateChange}
+                                                    disabled={isDateDisabled}
                                                     initialFocus
-                                                    disabled={(date) => {
-                                                        const today = new Date();
-                                                        today.setHours(0, 0, 0, 0);
-                                                        return date < today;
-                                                    }}
+                                                    className="rounded-md border"
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -720,7 +766,6 @@ export default function EnhancedBookingPage() {
                                 </div>
                             )}
 
-                            {/* The rest of your steps remain the same */}
                             {/* Table Selection Step */}
                             {bookingStep === 'table' && (
                                 <div className="space-y-4">
@@ -828,12 +873,13 @@ export default function EnhancedBookingPage() {
                                                 value={reservationForm.customer_name}
                                                 onChange={handleInputChange}
                                                 placeholder="Enter your full name"
+                                                required
                                             />
                                         </div>
 
                                         <div className="space-y-2">
                                             <Label htmlFor="customer_phone">
-                                                Phone Number (Optionnal)
+                                                Phone Number (Optional)
                                             </Label>
                                             <Input
                                                 id="customer_phone"
@@ -841,6 +887,7 @@ export default function EnhancedBookingPage() {
                                                 value={reservationForm.customer_phone}
                                                 onChange={handleInputChange}
                                                 placeholder="Your phone number"
+                                                type="tel"
                                             />
                                         </div>
 
@@ -855,6 +902,7 @@ export default function EnhancedBookingPage() {
                                                 onChange={handleInputChange}
                                                 placeholder="Your email address"
                                                 type="email"
+                                                required
                                             />
                                         </div>
 
@@ -876,21 +924,22 @@ export default function EnhancedBookingPage() {
                             )}
 
                             {/* Dialog Footer with Navigation Buttons */}
-                            <DialogFooter className="mt-4">
+                            <DialogFooter className="mt-6 flex flex-col sm:flex-row gap-2">
                                 {bookingStep !== 'datetime' && (
-                                    <Button variant="outline" onClick={handlePreviousStep}>
+                                    <Button variant="outline" onClick={handlePreviousStep} className="order-2 sm:order-1">
                                         Back
                                     </Button>
                                 )}
 
                                 {bookingStep === 'datetime' && (
                                     <>
-                                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="order-2 sm:order-1">
                                             Cancel
                                         </Button>
                                         <Button
                                             onClick={handleNextStep}
                                             disabled={!reservationForm.time}
+                                            className="order-1 sm:order-2"
                                         >
                                             Select Table
                                             <ChevronRight className="ml-1 h-4 w-4" />
@@ -902,6 +951,7 @@ export default function EnhancedBookingPage() {
                                     <Button
                                         onClick={handleNextStep}
                                         disabled={!reservationForm.table_id}
+                                        className="order-1 sm:order-2"
                                     >
                                         Continue to Contact Info
                                         <ChevronRight className="ml-1 h-4 w-4" />
@@ -911,7 +961,8 @@ export default function EnhancedBookingPage() {
                                 {bookingStep === 'contact' && (
                                     <Button
                                         onClick={handleSubmitReservation}
-                                        disabled={isSubmitting || !reservationForm.customer_name || !reservationForm.customer_phone}
+                                        disabled={isSubmitting || !reservationForm.customer_name || !reservationForm.customer_email}
+                                        className="order-1 sm:order-2"
                                     >
                                         {isSubmitting ? (
                                             <>
