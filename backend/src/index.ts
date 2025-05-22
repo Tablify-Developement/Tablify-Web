@@ -6,14 +6,11 @@ import db from './config/database';
 import dotenv from 'dotenv';
 
 // Import route modules
-
 import testRoutes from './routes/test';
 import utilisateurRoutes from './routes/utilisateurRoutes';
-import openReservationsRoutes  from './routes/openReservationsRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
 import reservationRoutes from './routes/reservationRoutes';
-
-
+import matchingRoutes from './routes/matchingRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -40,10 +37,11 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/api/services', testRoutes);
 app.use('/api', testRoutes);
 app.use('/api/users', utilisateurRoutes);
-app.use('/api/reservations/open', openReservationsRoutes);
+app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
-
-
+// Enregistrement des routes de matching
+app.use('/api/reservations', matchingRoutes);
+app.use('/api/matchings', matchingRoutes);
 
 // Health check endpoints
 app.get('/', (_req: Request, res: Response) => {
