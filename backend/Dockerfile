@@ -2,17 +2,20 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy package.json and package-lock.json
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (including dev dependencies needed for build)
+RUN npm install
 
 # Copy the rest of the application
 COPY . .
 
-# Build TypeScript
-RUN npm run build || true
+# Build TypeScript (without ignoring errors)
+RUN npm run build
+
+# For production, you can remove dev dependencies after build
+# RUN npm prune --production
 
 # Expose the port
 EXPOSE 3001
