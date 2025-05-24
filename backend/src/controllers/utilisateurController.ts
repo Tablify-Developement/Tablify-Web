@@ -1,14 +1,15 @@
-// backend/src/controllers/utilisateurController.ts
+// File: backend/src/controllers/utilisateurController.ts
+
 import { Request, Response } from 'express';
-import { UtilisateurModel } from '../models/utilisateurModel';
-import { logger } from '../utils/logger';
-import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import { UtilisateurModel }      from '../models/utilisateurModel';
+import { logger }                from '../utils/logger';
+import bcrypt                    from 'bcryptjs';
+import crypto                    from 'crypto';
+import jwt                       from 'jsonwebtoken';
 import { sendVerificationEmail } from '../utils/mailer';
-import jwt from 'jsonwebtoken';
 
 export const UtilisateurController = {
-    // ↳ retourne Promise<void> et ne renvoie plus le Response
+    // Création d’un utilisateur + envoi du mail de vérif
     createUtilisateur: async (req: Request, res: Response): Promise<void> => {
         const { nom, prenom, mail, password, date_naissance,
             role = 'user', notification = false, langue = 'fr' } = req.body;
@@ -20,56 +21,68 @@ export const UtilisateurController = {
         }
 
         try {
-            const existingUser = await UtilisateurModel.getUserByEmail(mail);
-            if (existingUser) {
+            const existing = await UtilisateurModel.getUserByEmail(mail);
+            if (existing) {
                 res.status(409).json({ error: 'User already exists' });
                 return;
             }
 
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(password, salt);
-            const token = crypto.randomBytes(32).toString('hex');
+            const salt    = await bcrypt.genSalt(10);
+            const hash    = await bcrypt.hash(password, salt);
+            const token   = crypto.randomBytes(32).toString('hex');
             const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-            await UtilisateurModel.createUtilisateur(
-                nom, prenom, mail, hashedPassword,
-                role, notification, langue, new Date(date_naissance),
-                token, expires
+            // crée d’abord l’utilisateur (ton modèle renvoie l’ID en base)
+            const newUser = await UtilisateurModel.createUtilisateur(
+                nom, prenom, mail, hash,
+                role, notification, langue,
+                new Date(date_naissance),
+                crypto.randomBytes(32).toString('hex'),
+                new Date(Date.now() + 24 * 60 * 60 * 1000)
             );
 
-            await sendVerificationEmail(mail, token);
-
-            logger.success(`User ${mail} created successfully with verification`);
+// ensuite, envoies un JWT basé sur l’UUID de cet utilisateur
+            await sendVerificationEmail(mail, newUser.id_utilisateur);
+            logger.success(`User ${mail} created, verification sent`);
             res.status(201).json({ message: 'Compte créé ! Email de vérification envoyé.' });
-            return;
-        } catch (error: any) {
-            logger.error(`Error creating Utilisateur: ${error.message}`);
+        } catch (err: any) {
+            logger.error(`Error creating user: ${err.message}`);
             res.status(500).json({ error: 'Error creating Utilisateur' });
-            return;
         }
     },
 
+    // Vérification du token envoyé par email
     verifyEmail: async (req: Request, res: Response): Promise<void> => {
-        const { token } = req.query;
-        if (!token || typeof token !== 'string') {
-            res.status(400).json({ error: 'Token manquant.' });
-            return;
-        }
+        const { token } = req.params;
 
         try {
-            const user = await UtilisateurModel.getByVerificationToken(token);
-            if (!user || user.token_expires < new Date()) {
-                res.status(400).json({ error: 'Token invalide ou expiré.' });
+            // 1) Vérifier et décoder le JWT
+            const payload = jwt.verify(
+                token,
+                process.env.JWT_EMAIL_SECRET!
+            ) as { userId: string };
+
+            // 2) Récupérer l'utilisateur via userId
+            const user = await UtilisateurModel.getUtilisateurbyId(payload.userId);
+            if (!user) {
+                res.status(404).json({ error: 'Utilisateur non trouvé' });
                 return;
             }
 
+            // 3) Marquer emailVerified à true
             await UtilisateurModel.verifyEmail(user.id_utilisateur);
-            res.json({ message: 'Email vérifié avec succès !' });
-            return;
-        } catch (error: any) {
-            logger.error(`Error verifying email: ${error.message}`);
-            res.status(500).json({ error: 'Error verifying email' });
-            return;
+            logger.success(`Email vérifié pour l’utilisateur ${user.id_utilisateur}`);
+
+            // 4) Répondre 200
+            res.status(200).json({ message: 'Email vérifié avec succès' });
+            return
+        } catch (err: any) {
+            if (err.name === 'TokenExpiredError') {
+                res.status(400).json({ error: 'Token expiré' });
+                return
+            }
+            res.status(400).json({ error: 'Token invalide' });
+            return
         }
     },
 
@@ -92,7 +105,14 @@ export const UtilisateurController = {
                 res.status(401).json({ error: 'Invalid email or password' });
                 return;
             }
+            if (!user.emailVerified) {
+                res
+                    .status(403)
+                    .json({ error: 'Vous devez vérifier votre email avant de vous connecter.' });
+                return;
+            }
 
+            // JWT importé en haut du fichier
             const token = jwt.sign(
                 { id: user.id_utilisateur, email: user.mail, role: user.role },
                 process.env.JWT_SECRET || 'fallback_secret',
@@ -111,13 +131,12 @@ export const UtilisateurController = {
                     role: user.role
                 }
             });
-            return;
         } catch (error: any) {
             logger.error(`Login error: ${error.message}`);
             res.status(500).json({ error: 'Login failed' });
-            return;
         }
     },
+
 
     getAllUtilisateurs: async (req: Request, res: Response): Promise<void> => {
         try {

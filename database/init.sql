@@ -124,3 +124,7 @@ CREATE TRIGGER update_restaurant_shifts_timestamp BEFORE UPDATE ON restaurant_sh
 CREATE TRIGGER update_restaurant_tables_timestamp BEFORE UPDATE ON restaurant_tables FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 CREATE TRIGGER update_interets_timestamp BEFORE UPDATE ON interets FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 CREATE TRIGGER update_restaurant_reservations_timestamp BEFORE UPDATE ON restaurant_reservations FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+-- Pour que les comptes créés avant l'ajout de la vérification restent connectables
+UPDATE utilisateurs
+SET email_verified = TRUE
+WHERE email_verified = FALSE;

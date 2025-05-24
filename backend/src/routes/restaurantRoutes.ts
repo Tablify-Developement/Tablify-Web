@@ -47,6 +47,7 @@ const upload = multer({
 
 const router = express.Router();
 
+router.use(authMiddleware);
 // Modify the getRestaurants method to fetch all restaurants without filtering
 router.get('/', RestaurantController.getAllRestaurants);
 

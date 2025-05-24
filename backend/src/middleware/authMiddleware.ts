@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { logger } from '../utils/logger';
+import { UtilisateurModel } from '../models/utilisateurModel';
 
 // Extend Express Request type to include user property
 declare global {
@@ -11,40 +12,50 @@ declare global {
     }
 }
 
-export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+export const authMiddleware = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+): Promise<void> => {
     try {
-        // Get token from header
         const authHeader = req.headers.authorization;
-
-        // Debug - log headers
-        console.log("Headers received:", JSON.stringify(req.headers));
-
-        // Check if token exists
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            logger.warn('No token or invalid format in authorization header');
-            console.log('Auth header:', authHeader);
+        if (!authHeader?.startsWith('Bearer ')) {
+            logger.warn('No token, authorization denied');
             res.status(401).json({ error: 'No token, authorization denied' });
             return;
         }
 
-        // Verify token
         const token = authHeader.split(' ')[1];
-        console.log("Token extracted:", token.substring(0, 10) + "...");
-
+        let decoded: any;
         try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-            console.log("Token decoded successfully:", JSON.stringify(decoded));
-
-            // Add user from payload to request
-            req.user = decoded;
-            next();
+            decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
         } catch (jwtError) {
-            console.error("JWT verification error:", jwtError);
+            logger.error(`JWT verification error: ${jwtError}`);
             res.status(401).json({ error: 'Token verification failed' });
+            return;
         }
+
+        // Récupère l'utilisateur en base pour vérifier emailVerified
+        const user = await UtilisateurModel.getUtilisateurbyId(String(decoded.id));
+        if (!user) {
+            logger.warn(`Utilisateur introuvable : ${decoded.id}`);
+            res.status(401).json({ error: 'Utilisateur introuvable' });
+            return;
+        }
+
+        // Contrôle de l'email vérifié (ajustez le nom du champ si besoin)
+        if (!user.emailVerified) {
+            logger.warn(`Email non vérifié pour l'utilisateur ${decoded.id}`);
+            res.status(403).json({ error: 'Email non vérifié' });
+            return;
+        }
+
+        // Tout est OK
+        req.user = decoded;
+        next();
     } catch (error) {
-        console.error(`Middleware error:`, error);
         logger.error(`Auth middleware error: ${error}`);
         res.status(500).json({ error: 'Server error in auth middleware' });
+        return;
     }
 };
