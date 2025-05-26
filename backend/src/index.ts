@@ -11,6 +11,7 @@ import utilisateurRoutes from './routes/utilisateurRoutes';
 import restaurantRoutes from './routes/restaurantRoutes';
 import reservationRoutes from './routes/reservationRoutes';
 import matchingRoutes from './routes/matchingRoutes';
+import interetRoutes from './routes/interetRoutes';
 
 // Load environment variables
 dotenv.config();
@@ -42,6 +43,8 @@ app.use('/api/reservations', reservationRoutes);
 // Enregistrement des routes de matching
 app.use('/api/reservations', matchingRoutes);
 app.use('/api/matchings', matchingRoutes);
+// Enregistrement des routes d'intérêts
+app.use('/api/interets', interetRoutes);
 
 // Health check endpoints
 app.get('/', (_req: Request, res: Response) => {
