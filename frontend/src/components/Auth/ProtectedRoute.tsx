@@ -1,22 +1,30 @@
-// File: src/components/auth/ProtectedRoute.tsx
+// src/components/auth/ProtectedRoute.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isLoading, isAuthenticated } = useAuth();
+export default function ProtectedRoute({
+                                           children,
+                                           requiredRole,
+                                       }: {
+    children: React.ReactNode;
+    requiredRole?: string;
+}) {
+    const { isLoading, isAuthenticated, user } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        // If not loading and not authenticated, redirect to login
-        if (!isLoading && !isAuthenticated) {
-            router.replace('/login');
+        if (!isLoading) {
+            if (!isAuthenticated) {
+                router.replace('/login');
+            } else if (requiredRole && user?.role !== requiredRole) {
+                router.replace('/unauthorized'); // Create this page if you want
+            }
         }
-    }, [isLoading, isAuthenticated, router]);
+    }, [isLoading, isAuthenticated, requiredRole, user, router]);
 
-    // If still loading, show a loading indicator
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-screen w-screen">
@@ -25,11 +33,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         );
     }
 
-    // If not authenticated, don't render anything (will redirect)
-    if (!isAuthenticated) {
+    if (!isAuthenticated || (requiredRole && user?.role !== requiredRole)) {
         return null;
     }
 
-    // If authenticated, render the children
     return <>{children}</>;
 }
