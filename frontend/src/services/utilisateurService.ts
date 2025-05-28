@@ -37,9 +37,18 @@ export const createUser = async (data: RegistrationData): Promise<Utilisateur> =
             notification: false,
         });
         return response.data;
-    } catch (error: any) {
-        console.error('Error creating user:', error.message);
-        throw error;
+    } catch (err: any) {
+        if (axios.isAxiosError(err) && err.response) {
+            const { status, data: body } = err.response;
+            if (status === 409) {
+                throw new Error("An account already exists with this email address.");
+            }
+            if (status === 400) {
+                throw new Error((body as any).message || "Invalid registration data.");
+            }
+            throw new Error((body as any).message || "Registration failed.");
+        }
+        throw new Error("Network error, please try again later.");
     }
 };
 
@@ -48,9 +57,18 @@ export const loginUser = async (data: LoginData) => {
     try {
         const response = await axios.post(`${API_BASE_URL}/users/login`, data);
         return response.data;
-    } catch (error) {
-        console.error("Error logging in: ", error);
-        throw error;
+    } catch (err: any) {
+        if (axios.isAxiosError(err) && err.response) {
+            const { status, data: body } = err.response;
+            if (status === 401) {
+                throw new Error("Incorrect email or password.");
+            }
+            if (status === 404) {
+                throw new Error("User not found.");
+            }
+            throw new Error((body as any).message || "Login failed.");
+        }
+        throw new Error("Network error, please try again later.");
     }
 };
 

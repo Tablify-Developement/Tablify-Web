@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-
+import { useToast } from '@/hooks/use_toast';
 // Login validation schema
 const loginSchema = z.object({
     mail: z.string().email("Invalid email address"),
@@ -40,6 +40,7 @@ export default function LoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const { login } = useAuth();
+    const { toast } = useToast();
 
     // Form setup
     const form = useForm<z.infer<typeof loginSchema>>({
@@ -61,14 +62,25 @@ export default function LoginPage() {
 
             // Store auth data via context
             login(response.user, response.token);
+            toast({
+                title: 'Logged in',
+                description: 'Welcome back!',
+            });
 
             // Redirect to dashboard
             router.push('/dashboard');
         } catch (error: any) {
-        if (axios.isAxiosError(error)) {
+        if (axios.isAxiosError(error)&& error.response?.status === 403) {
             // ① Affiche dans la console JS
             console.log('Login failed with status:', error.response?.status);
             console.log('Backend response body   :', error.response?.data);
+            toast({
+                title: 'Error',
+                description:
+                    (error.response.data as { error?: string }).error ||
+                    'Please verify your email before logging in.',
+                variant: 'destructive',
+            });
 
             if (error.response?.status === 403) {
                 setSubmitError(
@@ -85,6 +97,11 @@ export default function LoginPage() {
             error.message ||
             'Login failed. Please try again.';
         setSubmitError(errorMessage);
+            toast({
+                title: 'Error',
+                description: errorMessage,
+                variant: 'destructive',
+            });
     } finally {
         setIsSubmitting(false);
     }
