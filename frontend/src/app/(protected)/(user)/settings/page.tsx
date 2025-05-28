@@ -90,24 +90,24 @@ export default function SettingsProfile() {
     return (
         <Card className="max-w-lg mx-auto mt-10 p-4">
             <CardHeader>
-                <CardTitle>Paramètres du profil</CardTitle>
+                <CardTitle>Profile Settings</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="space-y-4">
                     <div>
-                        <Label htmlFor="nom">Nom</Label>
+                        <Label htmlFor="nom">Last Name</Label>
                         <Input id="nom" value={userInfo.nom} onChange={(e) => setUserInfo({ ...userInfo, nom: e.target.value })} placeholder="John" />
                     </div>
                     <div>
-                        <Label htmlFor="prenom">Prénom</Label>
+                        <Label htmlFor="prenom">First Name</Label>
                         <Input id="prenom" value={userInfo.prenom} onChange={(e) => setUserInfo({ ...userInfo, prenom: e.target.value })} placeholder="Doe" />
                     </div>
                     <div>
-                        <Label htmlFor="email">Adresse Email</Label>
+                        <Label htmlFor="email">Mail address</Label>
                         <Input id="email" type="email" value={userInfo.mail} onChange={(e) => setUserInfo({ ...userInfo, mail: e.target.value })} placeholder="john.doe@example.com" />
                     </div>
                     <div>
-                        <Label htmlFor="date_naissance">Date de Naissance</Label>
+                        <Label htmlFor="date_naissance">Birth Date</Label>
                         <Input
                             id="date_naissance"
                             type="date"
@@ -119,11 +119,11 @@ export default function SettingsProfile() {
                         />
                     </div>
                     <div className="flex items-center justify-between">
-                        <Label>Notifications</Label>
+                        <Label>Notification</Label>
                         <Switch checked={userInfo.notification} onCheckedChange={(value) => setUserInfo({ ...userInfo, notification: value })} />
                     </div>
                     <div>
-                        <Label>Langue</Label>
+                        <Label>Langage</Label>
                         <Select value={userInfo.langue} onValueChange={(value) => setUserInfo({ ...userInfo, langue: value })}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Sélectionnez une langue" />
