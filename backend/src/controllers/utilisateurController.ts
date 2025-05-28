@@ -11,7 +11,7 @@ export const UtilisateurController = {
     // ↳ retourne Promise<void> et ne renvoie plus le Response
     createUtilisateur: async (req: Request, res: Response): Promise<void> => {
         const { nom, prenom, mail, password, date_naissance,
-            role = 'user', notification = false, langue = 'fr' } = req.body;
+            role = 'user', notification = false, langue = 'en' } = req.body;
 
         if (!nom || !prenom || !mail || !password || !date_naissance) {
             logger.warn('All fields required');

@@ -53,7 +53,7 @@ export default function SettingsProfile() {
                         mail: user.mail || "",
                         date_naissance: new Date(),
                         notification: false,
-                        langue: "fr",
+                        langue: "en",
                     });
                 }
             } catch (err) {
@@ -118,9 +118,10 @@ export default function SettingsProfile() {
                             })}
                         />
                     </div>
+
                     <div className="flex items-center justify-between">
                         <Label>Notification</Label>
-                        <Switch checked={userInfo.notification} onCheckedChange={(value) => setUserInfo({ ...userInfo, notification: value })} />
+                        <Switch checked={true} disabled />
                     </div>
                     <div>
                         <Label>Langage</Label>
@@ -130,14 +131,13 @@ export default function SettingsProfile() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
-                                    <SelectItem value="fr">Français</SelectItem>
                                     <SelectItem value="en">Anglais</SelectItem>
-                                    <SelectItem value="es">Espagnol</SelectItem>
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
                     </div>
-                    <Button className="w-full mt-4" onClick={handleUpdate}>Enregistrer</Button>
+
+                    <Button className="w-full mt-4" onClick={handleUpdate}>Save Settings</Button>
                 </div>
             </CardContent>
         </Card>
