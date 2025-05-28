@@ -1,5 +1,6 @@
 import express from 'express';
 import { InteretController } from "../controllers/interetControllers";
+import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
@@ -7,12 +8,14 @@ const router = express.Router();
 router.post('/', InteretController.createInteret);
 router.get('/', InteretController.getAllInterets);
 
-// Routes spécifiques avec des préfixes
+// Routes spécifiques avec des préfixes - TOUTES EN PREMIER
 router.get('/suggestions', InteretController.getSuggestedInterets);
+router.get('/matching-status', authMiddleware, InteretController.getUserMatchingEnabledStatus); // ← DÉPLACÉ ICI
+router.post('/toggle-matching', authMiddleware, InteretController.toggleMatching); // ← DÉPLACÉ ICI
 router.get('/user/:userId', InteretController.getUserInterets);
 router.get('/name/:nom_interet', InteretController.getInteretByName);
 
-// Cette route doit être après les routes avec préfixes pour éviter les conflits
+// Route générique À LA FIN pour éviter les conflits
 router.get('/:id_interet', InteretController.getInteretById);
 
 // Route pour supprimer un intérêt

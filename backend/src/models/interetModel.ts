@@ -236,5 +236,61 @@ export const InteretModel = {
             logger.error(`Error fetching suggested interests: ${error.message}`);
             throw error;
         }
+    },
+    
+    // Activer le matching
+    async enableMatching(id_utilisateur: string): Promise<void> {
+      // Vérifier si déjà activé
+      const isEnabled = await this.isMatchingEnabled(id_utilisateur);
+      if (isEnabled) return;
+      
+      await this.createInteret(
+        uuidv4(), 
+        id_utilisateur, 
+        'MATCHING_ENABLED'
+      );
+    },
+  
+    // Désactiver le matching
+    async disableMatching(id_utilisateur: string): Promise<void> {
+      try {
+        const query = `
+          DELETE FROM interets 
+          WHERE id_utilisateur = $1 AND nom_interet = 'MATCHING_ENABLED'
+        `;
+        await db.query(query, [id_utilisateur]);
+        logger.success('Matching disabled for user');
+      } catch (error: any) {
+        logger.error(`Error disabling matching: ${error.message}`);
+        throw error;
+      }
+    },
+  
+    // Toggle matching
+    async toggleMatching(id_utilisateur: string): Promise<boolean> {
+      const isEnabled = await this.isMatchingEnabled(id_utilisateur);
+      
+      if (isEnabled) {
+        await this.disableMatching(id_utilisateur);
+        return false;
+      } else {
+        await this.enableMatching(id_utilisateur);
+        return true;
+      }
+    },
+    
+    // Vérifier si le matching est activé
+    async isMatchingEnabled(id_utilisateur: string): Promise<boolean> {
+      try {
+        const query = `
+          SELECT * FROM interets
+          WHERE id_utilisateur = $1 AND nom_interet = 'MATCHING_ENABLED'
+        `;
+        const result = await db.query(query, [id_utilisateur]);
+        return result.rows.length > 0;
+      } catch (error: any) {
+        logger.error(`Error checking matching status: ${error.message}`);
+        throw error;
+      }
     }
-}
+};

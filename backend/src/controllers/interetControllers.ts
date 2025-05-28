@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { InteretModel } from '../models/interetModel';
+import { getMatchingStats } from '../models/matchingModel';
 import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -132,5 +133,48 @@ export const InteretController = {
             logger.error(`Error getting suggested interests: ${error.message}`);
             res.status(500).json({error: 'Error getting suggested interests'});
         }
-    }
+    },
+    
+    toggleMatching: async (req: Request, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id || req.user?.id_utilisateur;
+            
+            if (!userId) {
+                res.status(401).json({ error: 'Utilisateur non authentifié' });
+                return;
+            }
+    
+            const newStatus = await InteretModel.toggleMatching(userId.toString());
+            
+            res.status(200).json({
+                success: true,
+                matching_enabled: newStatus,
+                message: newStatus ? 'Matching activé' : 'Matching désactivé'
+            });
+        } catch (error: any) {
+            logger.error(`Error toggling matching: ${error.message}`);
+            res.status(500).json({ error: 'Erreur lors du toggle matching' });
+        }
+    },
+    
+    getUserMatchingEnabledStatus: async (req: Request, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id || req.user?.id_utilisateur;
+            
+            if (!userId) {
+                res.status(401).json({ error: 'Utilisateur non authentifié' });
+                return;
+            }
+    
+            const isEnabled = await InteretModel.isMatchingEnabled(userId.toString());
+            
+            res.status(200).json({
+                success: true,
+                matching_enabled: isEnabled
+            });
+        } catch (error: any) {
+            logger.error(`Error getting matching status: ${error.message}`);
+            res.status(500).json({ error: 'Erreur lors de la récupération du statut' });
+        }
+    },
 }

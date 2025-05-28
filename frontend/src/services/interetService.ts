@@ -46,6 +46,30 @@ const interetService = {
    */
   getSuggestedInterets: async () => {
     return axios.get(`${API_BASE_URL}/api/interets/suggestions`);
+  },
+
+  /**
+   * Gets the matching status for the authenticated user
+   */
+  getMatchingStatus: async () => {
+    const token = localStorage.getItem('token');
+    return axios.get(`${API_BASE_URL}/api/interets/matching-status`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  },
+
+  /**
+   * Toggles matching activation for the authenticated user
+   */
+  toggleMatching: async () => {
+    const token = localStorage.getItem('token');
+    return axios.post(`${API_BASE_URL}/api/interets/toggle-matching`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
   }
 };
 

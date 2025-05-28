@@ -42,7 +42,7 @@ app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/reservations', reservationRoutes);
 // Enregistrement des routes de matching
 app.use('/api/reservations', matchingRoutes);
-app.use('/api/matchings', matchingRoutes);
+app.use('/api/matching', matchingRoutes);
 // Enregistrement des routes d'intérêts
 app.use('/api/interets', interetRoutes);
 

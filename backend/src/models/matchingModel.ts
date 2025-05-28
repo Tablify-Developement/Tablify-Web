@@ -189,38 +189,39 @@ async function getAvailableReservations(criteria: MatchingCriteria) {
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND r.verification = 'approved'
+        AND rr.party_size < 8
     `;
 
-  const queryParams: any[] = [];
-  let paramIndex = 1;
+    const queryParams: any[] = [];
+    let paramIndex = 1;
 
-  // Date filter if specified
-  if (criteria.dateRange) {
-    query += ` AND rr.reservation_date BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
-    queryParams.push(criteria.dateRange.startDate, criteria.dateRange.endDate);
-    paramIndex += 2;
-  }
+    // Date filter if specified
+    if (criteria.dateRange) {
+      query += ` AND rr.reservation_date BETWEEN $${paramIndex} AND $${paramIndex + 1}`;
+      queryParams.push(criteria.dateRange.startDate, criteria.dateRange.endDate);
+      paramIndex += 2;
+    }
 
-  // Time filter if specified
-  if (criteria.timePreference && criteria.timePreference !== 'any') {
-    const timeCondition = getTimeCondition(criteria.timePreference);
-    query += ` AND ${timeCondition}`;
-  }
+    // Time filter if specified
+    if (criteria.timePreference && criteria.timePreference !== 'any') {
+      const timeCondition = getTimeCondition(criteria.timePreference);
+      query += ` AND ${timeCondition}`;
+    }
 
-  // Restaurant type filter if specified
-  if (criteria.restaurantTypes && criteria.restaurantTypes.length > 0) {
-    query += ` AND r.restaurant_type = ANY($${paramIndex})`;
-    queryParams.push(criteria.restaurantTypes);
-    paramIndex++;
-  }
+    // Restaurant type filter if specified
+    if (criteria.restaurantTypes && criteria.restaurantTypes.length > 0) {
+      query += ` AND r.restaurant_type = ANY($${paramIndex})`;
+      queryParams.push(criteria.restaurantTypes);
+      paramIndex++;
+    }
 
-  query += ' ORDER BY rr.reservation_date, rr.reservation_time';
+    query += ' ORDER BY rr.reservation_date, rr.reservation_time';
 
-  console.log('Executing query with parameters:', queryParams);
-  const result = await pool.query(query, queryParams);
-  console.log(`Query returned ${result.rows.length} rows`);
-  return result.rows;
-  
+    console.log('Executing query with parameters:', queryParams);
+    const result = await pool.query(query, queryParams);
+    console.log(`Query returned ${result.rows.length} rows`);
+    return result.rows;
+    
   } catch (error) {
     console.error('Error in getAvailableReservations:', error);
     return [];
@@ -239,24 +240,36 @@ export async function calculateReservationMatch(
     return null;
   }
   
-  // Ensure restaurant_owner_id is valid to prevent SQL errors
-  if (!reservation.restaurant_owner_id) {
-    console.warn('Missing restaurant_owner_id in reservation');
-    reservation.restaurant_owner_id = 'unknown';
-  }
   try {
-    // Since your DB doesn't have participant system, we'll match based on:
-    // 1. Restaurant owner's interests
-    // 2. Restaurant type vs user interests
-    // 3. Location and time preferences
+    // CORRECTION : Récupérer les intérêts du client qui a fait la réservation
+    // Au lieu de chercher par email (complexe), on utilise une approche plus simple
+    let reservationCustomerInterests: string[] = [];
     
-    // Get restaurant owner's interests
-    const ownerInterests = await getUserInterests(reservation.restaurant_owner_id);
+    try {
+      // Pour l'instant, on utilisera des intérêts par défaut basés sur le type de restaurant
+      // + tentative de récupération via email du client
+      reservationCustomerInterests = getDefaultInterestsFromRestaurantType(reservation.restaurant_type);
+      
+      // Optionnel : essayer de récupérer les vrais intérêts du client
+      if (reservation.customer_email) {
+        try {
+          const realCustomerInterests = await getUserInterestsByEmail(reservation.customer_email);
+          if (realCustomerInterests.length > 0) {
+            reservationCustomerInterests = realCustomerInterests;
+          }
+        } catch (emailError) {
+          console.log('Could not fetch customer interests by email, using defaults');
+        }
+      }
+    } catch (error) {
+      console.log('Impossible de récupérer les intérêts du client, utilisation des intérêts par défaut');
+      reservationCustomerInterests = ['restaurant', 'dining', 'food'];
+    }
     
-    // Calculate interest match score
-    const interestScore = calculateInterestMatchScore(userInterests, ownerInterests);
+    // Calculate interest match score avec les intérêts du client qui a réservé
+    const interestScore = calculateInterestMatchScore(userInterests, reservationCustomerInterests);
     
-    // Add restaurant type matching
+    // Add restaurant type matching (bonus)
     const restaurantTypeScore = calculateRestaurantTypeScore(
       userInterests, 
       reservation.restaurant_type
@@ -267,7 +280,7 @@ export async function calculateReservationMatch(
     const timeScore = calculateTimeScore(reservation, criteria);
     const popularityScore = 50; // Neutral without rating system
     
-    // Combined interest score (owner interests + restaurant type)
+    // Combined interest score (client interests + restaurant type)
     const combinedInterestScore = Math.max(interestScore, restaurantTypeScore);
     
     // Weighted final score
@@ -278,9 +291,9 @@ export async function calculateReservationMatch(
       popularityScore
     });
 
-    // Find common interests
+    // Find common interests avec le client qui a réservé
     const commonInterests = userInterests.filter(interest => 
-      ownerInterests.includes(interest) || 
+      reservationCustomerInterests.includes(interest) || 
       interest === reservation.restaurant_type.toLowerCase()
     );
 
@@ -325,18 +338,76 @@ export async function calculateReservationMatch(
   }
 }
 
+// Fonction pour récupérer les intérêts d'un utilisateur via son email
+async function getUserInterestsByEmail(email: string): Promise<string[]> {
+  try {
+    const query = `
+      SELECT i.nom_interet 
+      FROM interets i
+      JOIN utilisateurs u ON i.id_utilisateur = u.id_utilisateur
+      WHERE u.mail = $1
+    `;
+
+    const result = await pool.query(query, [email]);
+    return result.rows.map(row => row.nom_interet.toLowerCase().trim());
+  } catch (error: any) {
+    console.error(`Error fetching user interests by email: ${error.message}`);
+    return [];
+  }
+}
+
+// Ajouter cette nouvelle fonction helper
+function getDefaultInterestsFromRestaurantType(restaurantType: string): string[] {
+  const type = restaurantType.toLowerCase();
+  
+  // Mapping des types de restaurants vers des intérêts probables
+  const typeMapping: { [key: string]: string[] } = {
+    'italian': ['cuisine italienne', 'pasta', 'pizza', 'vin'],
+    'italien': ['cuisine italienne', 'pasta', 'pizza', 'vin'],
+    'french': ['cuisine française', 'vin', 'gastronomie'],
+    'français': ['cuisine française', 'vin', 'gastronomie'],
+    'chinese': ['cuisine asiatique', 'cuisine chinoise'],
+    'chinois': ['cuisine asiatique', 'cuisine chinoise'],
+    'japanese': ['cuisine japonaise', 'sushi', 'sake'],
+    'japonais': ['cuisine japonaise', 'sushi', 'sake'],
+    'mexican': ['cuisine mexicaine', 'épicé'],
+    'mexicain': ['cuisine mexicaine', 'épicé'],
+    'indian': ['cuisine indienne', 'épices'],
+    'indien': ['cuisine indienne', 'épices'],
+    'fast food': ['restauration rapide', 'casual'],
+    'fine dining': ['gastronomie', 'cuisine raffinée', 'vin'],
+    'cafe': ['café', 'détente', 'discussion'],
+    'café': ['café', 'détente', 'discussion'],
+    'bar': ['cocktails', 'apéritif', 'socialisation'],
+    'asian': ['cuisine asiatique'],
+    'asiatique': ['cuisine asiatique'],
+    'mediterranean': ['cuisine méditerranéenne', 'légumes', 'huile olive'],
+    'méditerranéen': ['cuisine méditerranéenne', 'légumes', 'huile olive']
+  };
+  
+  // Chercher une correspondance
+  for (const [key, interests] of Object.entries(typeMapping)) {
+    if (type.includes(key)) {
+      return interests;
+    }
+  }
+  
+  // Par défaut
+  return ['restaurant', 'cuisine', 'dining'];
+}
+
 // Calculate interest matching score - same as InteretModel
-function calculateInterestMatchScore(userInterests: string[], ownerInterests: string[]): number {
-  if (!userInterests.length || !ownerInterests.length) {
+function calculateInterestMatchScore(userInterests: string[], customerInterests: string[]): number {
+  if (!userInterests.length || !customerInterests.length) {
     return 0;
   }
 
   const commonInterests = userInterests.filter(interest => 
-    ownerInterests.includes(interest)
+    customerInterests.includes(interest)
   );
 
   // Use same formula as InteretModel.calculateMatchScore
-  const score = (commonInterests.length / Math.max(userInterests.length, ownerInterests.length)) * 100;
+  const score = (commonInterests.length / Math.max(userInterests.length, customerInterests.length)) * 100;
   
   return Math.round(score);
 }
@@ -469,6 +540,7 @@ async function getTotalAvailableReservations(): Promise<number> {
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND r.verification = 'approved'
+        AND rr.party_size < 8
     `;
     
     const result = await pool.query(query);
@@ -496,6 +568,7 @@ async function getTopRestaurantTypes(): Promise<string[]> {
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND r.verification = 'approved'
+        AND rr.party_size < 8
       GROUP BY r.restaurant_type
       ORDER BY frequency DESC
       LIMIT 5

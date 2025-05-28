@@ -19,7 +19,7 @@ export const UtilisateurController = {
             return;
         }
 
-        try {
+        try {   
             const existingUser = await UtilisateurModel.getUserByEmail(mail);
             if (existingUser) {
                 res.status(409).json({ error: 'User already exists' });
