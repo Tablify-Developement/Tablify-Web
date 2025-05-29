@@ -62,7 +62,7 @@ export default function LoginPage() {
             login(response.user, response.token);
 
             // Redirect to dashboard
-            router.push('/dashboard');
+            router.push('/');
         } catch (error: any) {
             // Handle login error
             const errorMessage = error.response?.data?.message ||

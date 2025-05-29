@@ -1,10 +1,11 @@
 // File: src/app/(protected)/dashboard/layout.tsx
 'use client';
 
-import ProtectedRoute from '@/components/Auth/ProtectedRoute';
+import { DashboardProtectedRoute } from '@/components/Auth/ProtectedRoute';
 import DashboardContent from '@/components/Dashboard/layout';
 import { RestaurantProvider } from '@/context/restaurant-context';
 import { useAuthCheck } from '@/hooks/use-auth-check';
+import {Header} from "@/components/HomePage/Header";
 
 export default function DashboardLayout({
                                             children,
@@ -15,10 +16,11 @@ export default function DashboardLayout({
     useAuthCheck();
 
     return (
-        <ProtectedRoute>
+        <DashboardProtectedRoute>
             <RestaurantProvider>
+                <Header/>
                 <DashboardContent>{children}</DashboardContent>
             </RestaurantProvider>
-        </ProtectedRoute>
+        </DashboardProtectedRoute>
     );
 }

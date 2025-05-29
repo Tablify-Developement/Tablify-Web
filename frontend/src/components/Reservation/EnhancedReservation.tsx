@@ -39,7 +39,7 @@ import {
     ChevronRight,
     ImageIcon
 } from 'lucide-react';
-import { format, addDays, startOfDay, isAfter, isBefore } from 'date-fns';
+import { format, addDays, startOfDay, isAfter, isBefore, isToday, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { fetchAllRestaurants, fetchRestaurantTables } from '@/services/restaurantService';
 import {
@@ -61,6 +61,7 @@ interface Restaurant {
     image?: string;
     restaurant_name?: string;
     restaurant_type?: string;
+    verification?: string;
 }
 
 interface Table {
@@ -84,14 +85,13 @@ interface ReservationFormData {
     customer_name: string;
     customer_phone: string;
     customer_email: string;
-    date: Date;
+    date: Date | undefined;
     time: string;
     party_size: number;
     special_requests: string;
     table_id?: number;
 }
 
-// Booking steps enum
 type BookingStep = 'datetime' | 'table' | 'contact';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
@@ -105,7 +105,6 @@ export default function EnhancedBookingPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
 
-    // Selected restaurant and related state
     const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isHoursLoading, setIsHoursLoading] = useState(false);
@@ -115,18 +114,16 @@ export default function EnhancedBookingPage() {
     const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
     const [datePickerOpen, setDatePickerOpen] = useState(false);
 
-    // Booking workflow state
     const [bookingStep, setBookingStep] = useState<BookingStep>('datetime');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
-    // Reservation form state with proper date initialization
     const [reservationForm, setReservationForm] = useState<ReservationFormData>({
         restaurant_id: 0,
         customer_name: '',
         customer_phone: '',
         customer_email: '',
-        date: startOfDay(new Date()),
+        date: undefined,
         time: '',
         party_size: 2,
         special_requests: '',
@@ -142,56 +139,67 @@ export default function EnhancedBookingPage() {
             }
             return null;
         } catch (error) {
-            console.error(`Error fetching image for restaurant ${restaurantId}:`, error);
             return null;
         }
     };
 
-    // Get restaurant image URL
     const getRestaurantImageUrl = (restaurantId: number) => {
         const imageFilename = restaurantImages[restaurantId];
         if (!imageFilename) return null;
         return `${API_BASE_URL}/uploads/${imageFilename}`;
     };
 
-    // Improved date validation function
+    // Enhanced date validation function
     const isDateDisabled = (date: Date) => {
-        const today = startOfDay(new Date());
-        const selectedDate = startOfDay(date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const checkDate = new Date(date);
+        checkDate.setHours(0, 0, 0, 0);
 
         // Disable past dates (before today)
-        if (isBefore(selectedDate, today)) {
+        if (checkDate < today) {
             return true;
         }
 
-        // Optionally, disable dates too far in the future (e.g., 3 months)
-        const maxDate = addDays(today, 90); // 3 months ahead
-        if (isAfter(selectedDate, maxDate)) {
+        // Disable dates too far in the future (3 months)
+        const maxDate = new Date();
+        maxDate.setMonth(maxDate.getMonth() + 3);
+        maxDate.setHours(0, 0, 0, 0);
+
+        if (checkDate > maxDate) {
             return true;
         }
 
         return false;
     };
 
-    // Load restaurants on mount
+    // Load restaurants on mount - Filter out non-approved restaurants
     useEffect(() => {
         const fetchRestaurants = async () => {
             setIsLoading(true);
             try {
                 const data = await fetchAllRestaurants();
-                const transformedData = data.map(restaurant => ({
+
+                // Filter out restaurants that are not approved
+                const approvedRestaurants = data.filter(restaurant =>
+                    restaurant.verification === 'approved'
+                );
+
+                const transformedData = approvedRestaurants.map(restaurant => ({
                     id: restaurant.id,
                     name: restaurant.restaurant_name,
                     plan: restaurant.restaurant_type,
                     address: restaurant.address,
                     contact: restaurant.contact,
-                    description: restaurant.description
+                    description: restaurant.description,
+                    verification: restaurant.verification
                 }));
 
                 setRestaurants(transformedData);
                 setFilteredRestaurants(transformedData);
 
-                // Fetch images for all restaurants
+                // Fetch images for approved restaurants only
                 const imagesPromises = transformedData.map(async restaurant => {
                     const image = await fetchRestaurantImage(restaurant.id);
                     return { id: restaurant.id, image };
@@ -205,7 +213,6 @@ export default function EnhancedBookingPage() {
 
                 setRestaurantImages(imagesMap);
             } catch (error) {
-                console.error('Error fetching restaurants:', error);
                 setRestaurants([]);
                 setFilteredRestaurants([]);
             } finally {
@@ -241,31 +248,24 @@ export default function EnhancedBookingPage() {
         setSelectedRestaurant(restaurant);
         setIsHoursLoading(true);
         setIsTablesLoading(true);
+
+        // Reset form with undefined date to force user selection
         setReservationForm({
             ...reservationForm,
             restaurant_id: restaurant.id,
-            date: startOfDay(new Date()),
+            date: undefined,
             time: '',
             table_id: undefined
         });
         setBookingStep('datetime');
+        setAvailableTimeSlots([]);
+        setAvailableTables([]);
 
         try {
-            // Fetch tables for this restaurant
             const tablesData = await fetchRestaurantTables(restaurant.id);
             setAllTables(tablesData);
-
-            // Get available time slots for today
-            const formattedDate = format(startOfDay(new Date()), 'yyyy-MM-dd');
-            const timeSlots = await getAvailableTimeSlots(
-                restaurant.id,
-                formattedDate,
-                reservationForm.party_size
-            );
-            setAvailableTimeSlots(timeSlots);
         } catch (error) {
-            console.error('Error fetching restaurant data:', error);
-            setAvailableTimeSlots([]);
+            setAllTables([]);
         } finally {
             setIsHoursLoading(false);
             setIsTablesLoading(false);
@@ -273,47 +273,47 @@ export default function EnhancedBookingPage() {
         }
     };
 
-    // Improved date change handler
-    const handleDateChange = async (date: Date | undefined) => {
-        console.log('Date change handler called with:', date);
-
-        if (!date || !selectedRestaurant) {
-            console.log('Exiting early - no date or restaurant');
+    // Simplified date change handler
+    const handleDateSelect = async (selectedDate: Date | undefined) => {
+        if (!selectedDate || !selectedRestaurant) {
             return;
         }
 
-        // Ensure we're working with the start of the day
-        const selectedDate = startOfDay(date);
+        // Create a clean date object normalized to start of day
+        const normalizedDate = new Date(selectedDate);
+        normalizedDate.setHours(0, 0, 0, 0);
 
+        // Update form state immediately
         setReservationForm(prev => ({
             ...prev,
-            date: selectedDate,
+            date: normalizedDate,
             time: '', // Reset time when date changes
             table_id: undefined // Reset table selection
         }));
+
+        // Clear previous data
         setAvailableTables([]);
+        setAvailableTimeSlots([]);
+
+        // Close the date picker
+        setDatePickerOpen(false);
 
         try {
-            // Format date for API
-            const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-            console.log('Fetching time slots for date:', formattedDate);
+            // Format date for API call
+            const formattedDate = format(normalizedDate, 'yyyy-MM-dd');
 
-            // Get available time slots using the service
+            // Fetch available time slots
             const timeSlots = await getAvailableTimeSlots(
                 selectedRestaurant.id,
                 formattedDate,
                 reservationForm.party_size
             );
 
-            console.log('Received time slots:', timeSlots);
-            setAvailableTimeSlots(timeSlots);
+            setAvailableTimeSlots(timeSlots || []);
+
         } catch (error) {
-            console.error('Error fetching available time slots:', error);
             setAvailableTimeSlots([]);
         }
-
-        // Close the date picker
-        setDatePickerOpen(false);
     };
 
     // Handle party size change
@@ -321,22 +321,24 @@ export default function EnhancedBookingPage() {
         setReservationForm(prev => ({
             ...prev,
             party_size: size,
-            table_id: undefined // Reset table selection when party size changes
+            table_id: undefined
         }));
         setAvailableTables([]);
 
-        // If date is selected, update available times for new party size
+        // If date is already selected, update available times for new party size
         if (selectedRestaurant && reservationForm.date) {
             try {
                 const formattedDate = format(reservationForm.date, 'yyyy-MM-dd');
+
                 const timeSlots = await getAvailableTimeSlots(
                     selectedRestaurant.id,
                     formattedDate,
                     size
                 );
-                setAvailableTimeSlots(timeSlots);
+
+                setAvailableTimeSlots(timeSlots || []);
             } catch (error) {
-                console.error('Error updating time slots for new party size:', error);
+                setAvailableTimeSlots([]);
             }
         }
     };
@@ -346,13 +348,15 @@ export default function EnhancedBookingPage() {
         setReservationForm(prev => ({
             ...prev,
             time,
-            table_id: undefined // Reset table selection when time changes
+            table_id: undefined
         }));
 
-        if (selectedRestaurant) {
+        if (selectedRestaurant && reservationForm.date) {
+            const formattedDate = format(reservationForm.date, 'yyyy-MM-dd');
+
             await findAvailableTables(
                 selectedRestaurant.id,
-                format(reservationForm.date, 'yyyy-MM-dd'),
+                formattedDate,
                 time,
                 reservationForm.party_size
             );
@@ -364,7 +368,6 @@ export default function EnhancedBookingPage() {
     const findAvailableTables = async (restaurantId: number, date: string, time: string, partySize: number) => {
         setIsTablesLoading(true);
         try {
-            // Get available tables for the selected time slot
             const tables = await getAvailableTablesForTime(
                 restaurantId,
                 date,
@@ -374,7 +377,6 @@ export default function EnhancedBookingPage() {
 
             setAvailableTables(tables || []);
         } catch (error) {
-            console.error('Error finding available tables:', error);
             setAvailableTables([]);
         } finally {
             setIsTablesLoading(false);
@@ -400,7 +402,7 @@ export default function EnhancedBookingPage() {
 
     // Navigate to next step
     const handleNextStep = () => {
-        if (bookingStep === 'datetime' && reservationForm.time) {
+        if (bookingStep === 'datetime' && reservationForm.time && reservationForm.date) {
             setBookingStep('table');
         } else if (bookingStep === 'table' && reservationForm.table_id) {
             setBookingStep('contact');
@@ -421,10 +423,10 @@ export default function EnhancedBookingPage() {
         setIsSubmitting(true);
         setMessage({ type: '', text: '' });
 
-        // Validate form
         if (
             !reservationForm.customer_name ||
             !reservationForm.customer_email ||
+            !reservationForm.date ||
             !reservationForm.time ||
             !reservationForm.party_size ||
             !reservationForm.table_id
@@ -438,10 +440,8 @@ export default function EnhancedBookingPage() {
         }
 
         try {
-            // Format date for API
             const formattedDate = format(reservationForm.date, 'yyyy-MM-dd');
 
-            // Create reservation
             await createReservation({
                 restaurant_id: reservationForm.restaurant_id,
                 customer_name: reservationForm.customer_name,
@@ -459,7 +459,7 @@ export default function EnhancedBookingPage() {
                 text: 'Reservation created successfully! You will receive a confirmation shortly.',
             });
 
-            // Reset after successful submission
+            // Reset form after successful submission
             setTimeout(() => {
                 setIsDialogOpen(false);
                 setReservationForm({
@@ -467,19 +467,19 @@ export default function EnhancedBookingPage() {
                     customer_name: '',
                     customer_phone: '',
                     customer_email: '',
-                    date: startOfDay(new Date()),
+                    date: undefined,
                     time: '',
                     party_size: 2,
                     special_requests: '',
                     table_id: undefined
                 });
                 setAvailableTables([]);
+                setAvailableTimeSlots([]);
                 setBookingStep('datetime');
                 setMessage({ type: '', text: '' });
             }, 2000);
 
         } catch (error) {
-            console.error('Error creating reservation:', error);
             setMessage({
                 type: 'error',
                 text: 'Failed to create reservation. Please try again.',
@@ -502,15 +502,6 @@ export default function EnhancedBookingPage() {
             default: return type.charAt(0).toUpperCase() + type.slice(1);
         }
     };
-
-    // Debug effect to monitor date picker state
-    useEffect(() => {
-        console.log('Date picker state:', {
-            datePickerOpen,
-            selectedDate: reservationForm.date,
-            formattedDate: reservationForm.date ? format(reservationForm.date, 'PPP') : 'No date'
-        });
-    }, [datePickerOpen, reservationForm.date]);
 
     return (
         <div className="container mx-auto py-8 px-4">
@@ -556,13 +547,12 @@ export default function EnhancedBookingPage() {
                 </div>
             ) : filteredRestaurants.length === 0 ? (
                 <div className="text-center py-20">
-                    <p className="text-lg text-muted-foreground">No restaurants found matching your criteria.</p>
+                    <p className="text-lg text-muted-foreground">No approved restaurants found matching your criteria.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredRestaurants.map((restaurant) => (
                         <Card key={restaurant.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                            {/* Restaurant card content */}
                             <div className="h-48 bg-muted relative">
                                 {getRestaurantImageUrl(restaurant.id) ? (
                                     <img
@@ -623,7 +613,6 @@ export default function EnhancedBookingPage() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    {/* Restaurant Image in Dialog */}
                     {selectedRestaurant && (
                         <div className="mb-4 h-40 relative rounded-md overflow-hidden">
                             {getRestaurantImageUrl(selectedRestaurant.id) ? (
@@ -644,7 +633,6 @@ export default function EnhancedBookingPage() {
                         </div>
                     )}
 
-                    {/* Loading state */}
                     {isHoursLoading ? (
                         <div className="flex justify-center items-center py-8">
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -652,7 +640,6 @@ export default function EnhancedBookingPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Success/Error messages */}
                             {message.text && (
                                 <div className={`p-4 rounded-md ${
                                     message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
@@ -661,46 +648,59 @@ export default function EnhancedBookingPage() {
                                 </div>
                             )}
 
-                            {/* Step content based on current booking step */}
                             {bookingStep === 'datetime' && (
                                 <div className="space-y-4">
-                                    {/* Fixed Date Picker */}
+                                    {/* Date Picker - Simplified Implementation */}
                                     <div className="space-y-2">
                                         <Label htmlFor="date">Date *</Label>
-                                        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    id="date"
-                                                    variant="outline"
-                                                    type="button"
-                                                    className={cn(
-                                                        "w-full justify-start text-left font-normal",
-                                                        !reservationForm.date && "text-muted-foreground"
-                                                    )}
-                                                    onClick={() => {
-                                                        console.log('Date picker button clicked');
-                                                        setDatePickerOpen(!datePickerOpen);
-                                                    }}
-                                                >
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {reservationForm.date ? (
-                                                        format(reservationForm.date, 'PPP')
-                                                    ) : (
-                                                        <span>Pick a date</span>
-                                                    )}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start" side="bottom">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={reservationForm.date}
-                                                    onSelect={handleDateChange}
-                                                    disabled={isDateDisabled}
-                                                    initialFocus
-                                                    className="rounded-md border"
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                        <div className="relative">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className={cn(
+                                                    "w-full justify-start text-left font-normal",
+                                                    !reservationForm.date && "text-muted-foreground"
+                                                )}
+                                                onClick={() => setDatePickerOpen(true)}
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {reservationForm.date ? (
+                                                    format(reservationForm.date, 'PPP')
+                                                ) : (
+                                                    <span>Pick a date</span>
+                                                )}
+                                            </Button>
+
+                                            {datePickerOpen && (
+                                                <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-md shadow-lg p-3">
+                                                    <Calendar
+                                                        mode="single"
+                                                        selected={reservationForm.date}
+                                                        onSelect={handleDateSelect}
+                                                        disabled={isDateDisabled}
+                                                        initialFocus
+                                                    />
+                                                    <div className="flex justify-end mt-2 pt-2 border-t">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => setDatePickerOpen(false)}
+                                                        >
+                                                            Close
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Click outside overlay to close */}
+                                        {datePickerOpen && (
+                                            <div
+                                                className="fixed inset-0 z-40"
+                                                onClick={() => setDatePickerOpen(false)}
+                                            />
+                                        )}
                                     </div>
 
                                     {/* Party Size */}
@@ -740,11 +740,13 @@ export default function EnhancedBookingPage() {
                                     {/* Time Slots */}
                                     <div className="space-y-2">
                                         <Label>Available Times *</Label>
-                                        {availableTimeSlots.length === 0 ? (
+                                        {!reservationForm.date ? (
+                                            <p className="text-sm text-muted-foreground">
+                                                Please select a date first to see available times.
+                                            </p>
+                                        ) : availableTimeSlots.length === 0 ? (
                                             <p className="text-sm text-red-500">
-                                                {reservationForm.date
-                                                    ? "No available time slots for this date. Please choose another date."
-                                                    : "Please select a date first."}
+                                                No available time slots for this date. Please choose another date.
                                             </p>
                                         ) : (
                                             <div className="grid grid-cols-3 gap-2">
@@ -769,10 +771,9 @@ export default function EnhancedBookingPage() {
                             {/* Table Selection Step */}
                             {bookingStep === 'table' && (
                                 <div className="space-y-4">
-                                    {/* Reservation Summary */}
                                     <div className="bg-muted/30 p-4 rounded-lg text-sm">
                                         <div className="flex justify-between mb-2">
-                                            <div><strong>Date:</strong> {format(reservationForm.date, 'PPP')}</div>
+                                            <div><strong>Date:</strong> {reservationForm.date ? format(reservationForm.date, 'PPP') : 'Not selected'}</div>
                                             <div><strong>Time:</strong> {reservationForm.time}</div>
                                         </div>
                                         <div><strong>Party Size:</strong> {reservationForm.party_size} {reservationForm.party_size === 1 ? 'person' : 'people'}</div>
@@ -852,7 +853,7 @@ export default function EnhancedBookingPage() {
                                     {/* Reservation Summary */}
                                     <div className="bg-muted/30 p-4 rounded-lg text-sm">
                                         <div className="flex justify-between mb-2">
-                                            <div><strong>Date:</strong> {format(reservationForm.date, 'PPP')}</div>
+                                            <div><strong>Date:</strong> {reservationForm.date ? format(reservationForm.date, 'PPP') : 'Not selected'}</div>
                                             <div><strong>Time:</strong> {reservationForm.time}</div>
                                         </div>
                                         <div className="flex justify-between">
@@ -938,7 +939,7 @@ export default function EnhancedBookingPage() {
                                         </Button>
                                         <Button
                                             onClick={handleNextStep}
-                                            disabled={!reservationForm.time}
+                                            disabled={!reservationForm.time || !reservationForm.date}
                                             className="order-1 sm:order-2"
                                         >
                                             Select Table

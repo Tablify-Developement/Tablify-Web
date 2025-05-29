@@ -1,7 +1,10 @@
 // File: backend/src/routes/restaurantRoutes.ts
+// This is the complete updated file with admin routes added
+
 import express from 'express';
 import { RestaurantController } from '../controllers/restaurantController';
 import { authMiddleware } from '../middleware/authMiddleware';
+import { adminMiddleware } from '../middleware/adminMiddleware';
 
 import multer from 'multer';
 import path from 'path';
@@ -42,15 +45,17 @@ const upload = multer({
     fileFilter: fileFilter
 });
 
-
-
-
 const router = express.Router();
 
-// Modify the getRestaurants method to fetch all restaurants without filtering
+// **ADMIN ROUTES FIRST** - These need to be before the general routes to avoid conflicts
+router.get('/admin/all', authMiddleware, adminMiddleware, RestaurantController.getAllRestaurantsForAdmin);
+router.put('/admin/:id/approve', authMiddleware, adminMiddleware, RestaurantController.approveRestaurant);
+router.put('/admin/:id/reject', authMiddleware, adminMiddleware, RestaurantController.rejectRestaurant);
+router.delete('/admin/:id', authMiddleware, adminMiddleware, RestaurantController.deleteRestaurantAdmin);
+
+// Get all restaurants (public route for the booking page)
 router.get('/', RestaurantController.getAllRestaurants);
 
-// Special routes first - these need to be before the more general routes
 // Get restaurants for the authenticated user
 router.get('/user', authMiddleware, RestaurantController.getRestaurantsForCurrentUser);
 
@@ -77,8 +82,7 @@ router.put('/:id/hours', authMiddleware, RestaurantController.updateRestaurantHo
 router.get('/:id/settings', RestaurantController.getRestaurantSettings);
 router.put('/:id/settings', authMiddleware, RestaurantController.updateRestaurantSettings);
 
-// Add these routes to your existing routes
-// Add these routes to your existing restaurantRoutes.ts
+// Image Management
 router.post('/:id/image', authMiddleware, upload.single('image'), RestaurantController.uploadRestaurantImage);
 router.delete('/:id/image', authMiddleware, RestaurantController.deleteRestaurantImage);
 router.get('/:id/image', RestaurantController.getRestaurantImage);

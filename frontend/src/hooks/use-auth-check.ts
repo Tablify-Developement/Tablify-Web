@@ -1,43 +1,55 @@
 // File: src/hooks/use-auth-check.ts
 
 import { useEffect } from 'react';
-import axios from 'axios';
 import { useAuth } from '@/context/auth-context';
 
 /**
- * A hook to periodically validate the authentication token
- * and automatically log out if it's invalid
+ * A hook to periodically validate the authentication token and refresh user data
+ * This ensures role changes are detected immediately
  */
 export function useAuthCheck() {
-    const { token, logout } = useAuth();
+    const { token, refreshUser } = useAuth();
 
     useEffect(() => {
-        // Skip if no token - IMPORTANT: Don't try to validate if no token
+        // Skip if no token
         if (!token) return;
 
-        // Function to validate token
-        const checkAuth = async () => {
-            try {
-                // Try a simple endpoint instead of /users/me which might not exist
-                await axios.get('/api/health'); // Use a simple endpoint that doesn't require auth
-            } catch (error) {
-                console.warn('Auth check failed, but not logging out automatically');
-                // Don't auto-logout to prevent unexpected behavior
-                // Only log out on explicit 401 responses
-                if (axios.isAxiosError(error) && error.response?.status === 401) {
-                    console.error("Unauthorized response, logging out");
-                    logout();
-                }
-            }
-        };
+        // Check auth status immediately
+        refreshUser();
 
-        // Check auth on mount
-        checkAuth();
-
-        // Set up periodic check (less frequent to reduce errors)
-        const interval = setInterval(checkAuth, 30 * 60 * 1000); // Every 30 minutes
+        // Set up aggressive periodic check (every 15 seconds)
+        const interval = setInterval(() => {
+            console.log('🔄 Periodic auth check - refreshing user data...');
+            refreshUser();
+        }, 15 * 1000); // Every 15 seconds
 
         // Clean up on unmount
         return () => clearInterval(interval);
-    }, [token, logout]);
+    }, [token, refreshUser]);
+
+    // Check when tab becomes visible
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden && token) {
+                console.log('👁️ Tab became visible - refreshing user data...');
+                refreshUser();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [token, refreshUser]);
+
+    // Check when window regains focus
+    useEffect(() => {
+        const handleFocus = () => {
+            if (token) {
+                console.log('🎯 Window focused - refreshing user data...');
+                refreshUser();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [token, refreshUser]);
 }
