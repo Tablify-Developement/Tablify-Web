@@ -52,7 +52,7 @@ const interetService = {
    * Gets the matching status for the authenticated user
    */
   getMatchingStatus: async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     return axios.get(`${API_BASE_URL}/api/interets/matching-status`, {
       headers: {
         Authorization: `Bearer ${token}`
@@ -64,7 +64,7 @@ const interetService = {
    * Toggles matching activation for the authenticated user
    */
   toggleMatching: async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     return axios.post(`${API_BASE_URL}/api/interets/toggle-matching`, {}, {
       headers: {
         Authorization: `Bearer ${token}`
