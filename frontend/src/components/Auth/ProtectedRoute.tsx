@@ -1,22 +1,59 @@
-// File: src/components/auth/ProtectedRoute.tsx
+// File: src/components/Auth/ProtectedRoute.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-    const { isLoading, isAuthenticated } = useAuth();
+interface ProtectedRouteProps {
+    children: React.ReactNode;
+    requiredRoles?: string | string[];
+    redirectTo?: string;
+}
+
+export default function ProtectedRoute({
+                                           children,
+                                           requiredRoles,
+                                           redirectTo,
+                                       }: ProtectedRouteProps) {
+    const { isLoading, isAuthenticated, user, hasRole } = useAuth();
     const router = useRouter();
 
     useEffect(() => {
-        // If not loading and not authenticated, redirect to login
-        if (!isLoading && !isAuthenticated) {
-            router.replace('/login');
-        }
-    }, [isLoading, isAuthenticated, router]);
+        if (!isLoading) {
+            // Not authenticated at all
+            if (!isAuthenticated) {
+                router.replace('/login');
+                return;
+            }
 
-    // If still loading, show a loading indicator
+            // Authenticated but doesn't have required role
+            if (requiredRoles && !hasRole(requiredRoles)) {
+                // Determine where to redirect based on user role
+                let redirectPath = redirectTo;
+
+                if (!redirectPath) {
+                    switch (user?.role) {
+                        case 'admin':
+                            redirectPath = '/admin';
+                            break;
+                        case 'restaurant':
+                            redirectPath = '/dashboard';
+                            break;
+                        case 'user':
+                        default:
+                            redirectPath = '/unauthorized';
+                            break;
+                    }
+                }
+
+                router.replace(redirectPath);
+                return;
+            }
+        }
+    }, [isLoading, isAuthenticated, requiredRoles, user, router, hasRole, redirectTo]);
+
+    // Show loading spinner
     if (isLoading) {
         return (
             <div className="flex items-center justify-center h-screen w-screen">
@@ -25,11 +62,36 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         );
     }
 
-    // If not authenticated, don't render anything (will redirect)
-    if (!isAuthenticated) {
+    // Show nothing while redirecting
+    if (!isAuthenticated || (requiredRoles && !hasRole(requiredRoles))) {
         return null;
     }
 
-    // If authenticated, render the children
+    // Show the protected content
     return <>{children}</>;
+}
+
+// Specific components for common use cases
+export function DashboardProtectedRoute({ children }: { children: React.ReactNode }) {
+    return (
+        <ProtectedRoute requiredRoles={['restaurant', 'admin']}>
+            {children}
+        </ProtectedRoute>
+    );
+}
+
+export function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+    return (
+        <ProtectedRoute requiredRoles="admin" redirectTo="/unauthorized">
+            {children}
+        </ProtectedRoute>
+    );
+}
+
+export function UserProtectedRoute({ children }: { children: React.ReactNode }) {
+    return (
+        <ProtectedRoute requiredRoles={['user', 'restaurant', 'admin']}>
+            {children}
+        </ProtectedRoute>
+    );
 }

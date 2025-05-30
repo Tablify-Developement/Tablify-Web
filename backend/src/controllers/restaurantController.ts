@@ -442,5 +442,120 @@ export const RestaurantController = {
             logger.error(`Error fetching restaurant image: ${error.message}`);
             res.status(500).json({ error: 'An error occurred while fetching the restaurant image' });
         }
+    },
+
+    getAllRestaurantsForAdmin: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log('Admin fetching all restaurants...');
+            const restaurants = await RestaurantModel.getAllRestaurants();
+            console.log(`Found ${restaurants.length} restaurants`);
+
+            // Import UtilisateurModel at the top of the file if not already imported
+            const { UtilisateurModel } = await import('../models/utilisateurModel');
+
+            // Fetch user details for each restaurant
+            const restaurantsWithUsers = await Promise.all(
+                restaurants.map(async (restaurant: any) => {
+                    try {
+                        const user = await UtilisateurModel.getUtilisateurbyId(restaurant.user_id);
+                        return {
+                            ...restaurant,
+                            user_name: user ? `${user.prenom} ${user.nom}` : 'Unknown',
+                            user_email: user ? user.mail : 'No email'
+                        };
+                    } catch (error) {
+                        logger.warn(`Could not fetch user ${restaurant.user_id} for restaurant ${restaurant.id}`);
+                        return {
+                            ...restaurant,
+                            user_name: 'Unknown',
+                            user_email: 'No email'
+                        };
+                    }
+                })
+            );
+
+            console.log(`Returning ${restaurantsWithUsers.length} restaurants with user data`);
+            res.status(200).json(restaurantsWithUsers);
+        } catch (error: any) {
+            logger.error(`Error fetching restaurants for admin: ${error.message}`);
+            console.error('Detailed error:', error);
+            res.status(500).json({ error: 'Error fetching restaurants', details: error.message });
+        }
+    },
+
+    approveRestaurant: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        try {
+            const updatedRestaurant = await RestaurantModel.updateRestaurant(Number(id), {
+                verification: 'approved'
+            });
+
+            if (!updatedRestaurant) {
+                res.status(404).json({ error: 'Restaurant not found' });
+                return;
+            }
+
+            logger.success(`Restaurant ${id} approved by admin`);
+            res.status(200).json(updatedRestaurant);
+        } catch (error: any) {
+            logger.error(`Error approving restaurant: ${error.message}`);
+            res.status(500).json({ error: 'Error approving restaurant' });
+        }
+    },
+
+    rejectRestaurant: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        try {
+            const updatedRestaurant = await RestaurantModel.updateRestaurant(Number(id), {
+                verification: 'rejected'
+            });
+
+            if (!updatedRestaurant) {
+                res.status(404).json({ error: 'Restaurant not found' });
+                return;
+            }
+
+            logger.success(`Restaurant ${id} rejected by admin`);
+            res.status(200).json(updatedRestaurant);
+        } catch (error: any) {
+            logger.error(`Error rejecting restaurant: ${error.message}`);
+            res.status(500).json({ error: 'Error rejecting restaurant' });
+        }
+    },
+
+    deleteRestaurantAdmin: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'Restaurant ID is required' });
+            return;
+        }
+
+        try {
+            const result = await RestaurantModel.deleteRestaurant(Number(id));
+
+            if (!result) {
+                res.status(404).json({ error: 'Restaurant not found' });
+                return;
+            }
+
+            logger.success(`Restaurant ${id} deleted by admin`);
+            res.status(200).json({ message: 'Restaurant deleted successfully' });
+        } catch (error: any) {
+            logger.error(`Error deleting restaurant: ${error.message}`);
+            res.status(500).json({ error: 'Error deleting restaurant' });
+        }
     }
 };

@@ -13,7 +13,7 @@ interface Restaurant {
     address: string;
     contact: string;
     description: string;
-    verification: string;
+    verification: string; // Add verification field
 }
 
 interface Table {
@@ -73,13 +73,11 @@ export const fetchRestaurantsByUserId = async (userId: string | number) => {
     try {
         console.log("Fetching restaurants for user ID:", userId);
 
-        // Make sure we have a valid user ID
         if (!userId) {
             console.warn("No user ID provided to fetchRestaurantsByUserId");
             return [];
         }
 
-        // Use the user ID directly in the request (as a string)
         const response = await axios.get(`${API_BASE_URL}/restaurants/user/${userId}`);
         console.log("Raw API response:", response.data);
 
@@ -164,7 +162,6 @@ export const fetchRestaurantHours = async (restaurant_id: number): Promise<Hours
         return response.data;
     } catch (error) {
         console.error("Error fetching hours:", error);
-        // Return empty hours instead of throwing
         return {};
     }
 };
@@ -208,12 +205,48 @@ export const updateRestaurantSettings = async (restaurant_id: number, data: {
     }
 };
 
+// Fetch all restaurants - now with filtering for approved restaurants only
 export const fetchAllRestaurants = async (): Promise<Restaurant[]> => {
+    try {
+        console.log('Fetching restaurants from:', `${API_BASE_URL}/restaurants`);
+        const response = await axios.get(`${API_BASE_URL}/restaurants`);
+        console.log('Restaurants response:', response.status);
+        return response.data;
+    } catch (error: any) {
+        console.error("Error fetching all restaurants:", error);
+        console.error("Error details:", {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data,
+            url: `${API_BASE_URL}/restaurants`
+        });
+        throw error;
+    }
+};
+
+// Fetch all restaurants without filtering (for admin use)
+export const fetchAllRestaurantsUnfiltered = async (): Promise<Restaurant[]> => {
     try {
         const response = await axios.get(`${API_BASE_URL}/restaurants`);
         return response.data;
     } catch (error) {
         console.error("Error fetching all restaurants:", error);
+        throw error;
+    }
+};
+
+// Get restaurants by status for admin dashboard
+export const fetchRestaurantsByStatus = async (status?: 'pending' | 'approved' | 'rejected'): Promise<Restaurant[]> => {
+    try {
+        let url = `${API_BASE_URL}/restaurants`;
+        if (status) {
+            url += `?status=${status}`;
+        }
+
+        const response = await axios.get(url);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching restaurants by status:", error);
         throw error;
     }
 };

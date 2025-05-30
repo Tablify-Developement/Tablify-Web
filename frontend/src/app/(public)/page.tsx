@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { HomePage } from "@/components/HomePage/Layout";
+import EnhancedBookingPage from '@/components/Reservation/EnhancedReservation';
 
-export default function Home() {
-    return <HomePage />;
+export default function PublicReservationPage() {
+    return <EnhancedBookingPage />;
 }

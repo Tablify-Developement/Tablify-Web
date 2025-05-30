@@ -12,7 +12,7 @@ export const UtilisateurController = {
     // Création d’un utilisateur + envoi du mail de vérif
     createUtilisateur: async (req: Request, res: Response): Promise<void> => {
         const { nom, prenom, mail, password, date_naissance,
-            role = 'user', notification = false, langue = 'fr' } = req.body;
+            role = 'user', notification = false, langue = 'en' } = req.body;
 
         if (!nom || !prenom || !mail || !password || !date_naissance) {
             logger.warn('All fields required');
@@ -220,5 +220,62 @@ export const UtilisateurController = {
             res.status(500).json({ error: 'Error deleting Utilisateur' });
             return;
         }
-    }
+    },
+
+    getAllUsersForAdmin: async (req: Request, res: Response): Promise<void> => {
+        try {
+            console.log('Admin fetching all users...');
+            const users = await UtilisateurModel.getAllUtilisateurs();
+            console.log(`Found ${users.length} users`);
+
+            // Remove sensitive information like passwords
+            const sanitizedUsers = users.map(user => ({
+                id: user.id_utilisateur,
+                nom: user.nom,
+                prenom: user.prenom,
+                mail: user.mail,
+                role: user.role,
+                email_verified: user.email_verified,
+                created_at: user.created_at || new Date().toISOString(),
+                notification: user.notification,
+                langue: user.langue
+            }));
+
+            res.status(200).json(sanitizedUsers);
+        } catch (error: any) {
+            logger.error(`Error getting users for admin: ${error.message}`);
+            console.error('Detailed error:', error);
+            res.status(500).json({ error: 'Error getting users', details: error.message });
+        }
+    },
+
+    deleteUserAdmin: async (req: Request, res: Response): Promise<void> => {
+        const { id } = req.params;
+
+        if (!id) {
+            res.status(400).json({ error: 'User ID is required' });
+            return;
+        }
+
+        try {
+            // Prevent admin from deleting themselves
+            if (req.user && req.user.id === id) {
+                res.status(400).json({ error: 'Cannot delete your own account' });
+                return;
+            }
+
+            const success = await UtilisateurModel.deleteUtilisateur(id);
+
+            if (!success) {
+                res.status(404).json({ error: 'User not found' });
+                return;
+            }
+
+            logger.success(`User ${id} deleted by admin`);
+            res.status(200).json({ message: 'User deleted successfully' });
+        } catch (error: any) {
+            logger.error(`Error deleting user: ${error.message}`);
+            res.status(500).json({ error: 'Error deleting user' });
+        }
+    },
 };

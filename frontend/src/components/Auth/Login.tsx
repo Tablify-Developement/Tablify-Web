@@ -63,7 +63,7 @@ export default function LoginPage() {
             login(response.user, response.token);
 
             // Redirect to dashboard
-            router.push('/dashboard');
+            router.push('/');
         } catch (error: any) {
         if (axios.isAxiosError(error)) {
             // ① Affiche dans la console JS
