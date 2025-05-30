@@ -30,11 +30,11 @@ const sslConfig = process.env.NODE_ENV === 'production'
 // Create a new PostgreSQL connection pool
 const pool = new Pool({
     connectionString,
-    ssl: sslConfig,
+    ssl: false,
     // Connection pool settings
-    max: parseInt(process.env.PG_MAX_POOL_SIZE || '10'), // Maximum number of clients
-    idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-    connectionTimeoutMillis: 5000 // How long to wait for a connection
+    max: parseInt(process.env.PG_MAX_POOL_SIZE || '30'), // Increased from 10
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000, // Increased from 5000
 });
 
 // Monitor the pool events
