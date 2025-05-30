@@ -235,7 +235,7 @@ export const UtilisateurController = {
                 prenom: user.prenom,
                 mail: user.mail,
                 role: user.role,
-                email_verified: user.email_verified,
+                email_verified: user.emailVerified,
                 created_at: user.created_at || new Date().toISOString(),
                 notification: user.notification,
                 langue: user.langue

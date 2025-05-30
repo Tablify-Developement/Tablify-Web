@@ -208,18 +208,18 @@ export const updateRestaurantSettings = async (restaurant_id: number, data: {
 // Fetch all restaurants - now with filtering for approved restaurants only
 export const fetchAllRestaurants = async (): Promise<Restaurant[]> => {
     try {
-        console.log('Fetching restaurants from:', `${API_BASE_URL}/restaurants`);
         const response = await axios.get(`${API_BASE_URL}/restaurants`);
-        console.log('Restaurants response:', response.status);
-        return response.data;
-    } catch (error: any) {
+
+        // Filter to return only approved restaurants for public booking
+        const approvedRestaurants = response.data.filter((restaurant: Restaurant) =>
+            restaurant.verification === 'approved'
+        );
+
+        console.log(`Fetched ${response.data.length} total restaurants, ${approvedRestaurants.length} approved`);
+
+        return approvedRestaurants;
+    } catch (error) {
         console.error("Error fetching all restaurants:", error);
-        console.error("Error details:", {
-            message: error.message,
-            status: error.response?.status,
-            data: error.response?.data,
-            url: `${API_BASE_URL}/restaurants`
-        });
         throw error;
     }
 };

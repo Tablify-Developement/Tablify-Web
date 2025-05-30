@@ -88,12 +88,16 @@ export const RestaurantController = {
 
 
     // Get all restaurants with optional filtering
+    // Get all restaurants with optional filtering
     getAllRestaurants: async (req: Request, res: Response): Promise<void> => {
         try {
             const { status, type, search } = req.query;
 
+            // For public access, default to approved restaurants only
+            const defaultStatus = status || 'approved';
+
             const restaurants = await RestaurantModel.getAllRestaurants({
-                status: status as 'pending' | 'approved' | 'rejected' | undefined,
+                status: defaultStatus as 'pending' | 'approved' | 'rejected' | undefined,
                 type: type as string | undefined,
                 search: search as string | undefined
             });
