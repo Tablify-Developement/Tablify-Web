@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import axios from 'axios';
 import { loginUser } from '@/services/utilisateurService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,14 +65,29 @@ export default function LoginPage() {
             // Redirect to dashboard
             router.push('/');
         } catch (error: any) {
-            // Handle login error
-            const errorMessage = error.response?.data?.message ||
-                error.message ||
-                "Login failed. Please try again.";
-            setSubmitError(errorMessage);
-        } finally {
-            setIsSubmitting(false);
+        if (axios.isAxiosError(error)) {
+            // ① Affiche dans la console JS
+            console.log('Login failed with status:', error.response?.status);
+            console.log('Backend response body   :', error.response?.data);
+
+            if (error.response?.status === 403) {
+                setSubmitError(
+                    (error.response.data as { error?: string }).error
+                    || 'Vous devez vérifier votre email avant de vous connecter.'
+                );
+                setIsSubmitting(false);
+                return;
+            }
         }
+        // Ton fallback actuel pour les autres erreurs
+        const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            'Login failed. Please try again.';
+        setSubmitError(errorMessage);
+    } finally {
+        setIsSubmitting(false);
+    }
     };
 
     return (

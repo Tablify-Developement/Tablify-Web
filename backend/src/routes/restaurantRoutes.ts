@@ -47,6 +47,8 @@ const upload = multer({
 
 const router = express.Router();
 
+router.use(authMiddleware);
+
 // **ADMIN ROUTES FIRST** - These need to be before the general routes to avoid conflicts
 router.get('/admin/all', authMiddleware, adminMiddleware, RestaurantController.getAllRestaurantsForAdmin);
 router.put('/admin/:id/approve', authMiddleware, adminMiddleware, RestaurantController.approveRestaurant);

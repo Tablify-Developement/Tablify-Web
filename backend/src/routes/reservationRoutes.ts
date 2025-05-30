@@ -1,9 +1,10 @@
 // backend/src/routes/reservationRoutes.ts
 import express from 'express';
 import { ReservationController } from '../controllers/reservationController';
-
+import { authMiddleware }        from '../middleware/authMiddleware';
 const router = express.Router();
 
+router.use(authMiddleware);
 // Create reservation
 router.post('/', ReservationController.createReservation);
 

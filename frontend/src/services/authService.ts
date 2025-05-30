@@ -69,3 +69,9 @@ export const getAuthToken = (): string | null => {
 
     return localStorage.getItem('authToken');
 };
+export async function sendVerificationEmail(
+    mail: string,
+    userId: string | number
+) {
+    return axios.post('/api/verify/resend', { mail, userId });
+}

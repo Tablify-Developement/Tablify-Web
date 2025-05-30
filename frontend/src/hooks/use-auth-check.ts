@@ -1,33 +1,46 @@
 // File: src/hooks/use-auth-check.ts
-
 import { useEffect } from 'react';
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
 /**
- * A hook to periodically validate the authentication token and refresh user data
- * This ensures role changes are detected immediately
+ * A hook to validate the auth token against a protected route and refresh user data
+ * This ensures session integrity and immediate reflection of role changes.
  */
 export function useAuthCheck() {
-    const { token, refreshUser } = useAuth();
+    const { token, logout, refreshUser } = useAuth();
+    const router = useRouter();
 
     useEffect(() => {
-        // Skip if no token
         if (!token) return;
 
-        // Check auth status immediately
-        refreshUser();
+        const checkAuthStatus = async () => {
+            try {
+                // Hit protected endpoint to validate session
+                await axios.get('/api/protected-route');
+                refreshUser(); // Refresh user data
+            } catch (err) {
+                if (axios.isAxiosError(err)) {
+                    if (err.response?.status === 401) {
+                        logout();
+                    } else if (err.response?.status === 403) {
+                        router.push('/auth/verify-reminder');
+                    }
+                }
+            }
+        };
 
-        // Set up aggressive periodic check (every 15 seconds)
+        checkAuthStatus();
+
         const interval = setInterval(() => {
-            console.log('🔄 Periodic auth check - refreshing user data...');
-            refreshUser();
-        }, 15 * 1000); // Every 15 seconds
+            console.log('🔄 Periodic auth check - validating session and refreshing user data...');
+            checkAuthStatus();
+        }, 30 * 60 * 1000); // Every 30 minutes
 
-        // Clean up on unmount
         return () => clearInterval(interval);
-    }, [token, refreshUser]);
+    }, [token, logout, refreshUser, router]);
 
-    // Check when tab becomes visible
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (!document.hidden && token) {
@@ -40,7 +53,6 @@ export function useAuthCheck() {
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [token, refreshUser]);
 
-    // Check when window regains focus
     useEffect(() => {
         const handleFocus = () => {
             if (token) {
