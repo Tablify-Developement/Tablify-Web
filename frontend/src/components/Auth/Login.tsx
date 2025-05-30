@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import axios from 'axios';
 import { loginUser } from '@/services/utilisateurService';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-
+import { useToast } from '@/hooks/use_toast';
 // Login validation schema
 const loginSchema = z.object({
     mail: z.string().email("Invalid email address"),
@@ -39,6 +40,7 @@ export default function LoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const { login } = useAuth();
+    const { toast } = useToast();
 
     // Form setup
     const form = useForm<z.infer<typeof loginSchema>>({
@@ -60,18 +62,49 @@ export default function LoginPage() {
 
             // Store auth data via context
             login(response.user, response.token);
+            toast({
+                title: 'Logged in',
+                description: 'Welcome back!',
+            });
 
             // Redirect to dashboard
-            router.push('/dashboard');
+            router.push('/');
         } catch (error: any) {
-            // Handle login error
-            const errorMessage = error.response?.data?.message ||
-                error.message ||
-                "Login failed. Please try again.";
-            setSubmitError(errorMessage);
-        } finally {
-            setIsSubmitting(false);
+        if (axios.isAxiosError(error)&& error.response?.status === 403) {
+            // ① Affiche dans la console JS
+            console.log('Login failed with status:', error.response?.status);
+            console.log('Backend response body   :', error.response?.data);
+            toast({
+                title: 'Error',
+                description:
+                    (error.response.data as { error?: string }).error ||
+                    'Please verify your email before logging in.',
+                variant: 'destructive',
+            });
+
+            if (error.response?.status === 403) {
+                setSubmitError(
+                    (error.response.data as { error?: string }).error
+                    || 'Vous devez vérifier votre email avant de vous connecter.'
+                );
+                setIsSubmitting(false);
+                return;
+            }
         }
+        // Ton fallback actuel pour les autres erreurs
+        const errorMessage =
+            error.response?.data?.message ||
+            error.message ||
+            'Login failed. Please try again.';
+        setSubmitError(errorMessage);
+            toast({
+                title: 'Error',
+                description: errorMessage,
+                variant: 'destructive',
+            });
+    } finally {
+        setIsSubmitting(false);
+    }
     };
 
     return (

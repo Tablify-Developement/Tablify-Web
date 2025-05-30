@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import {adminMiddleware} from "../middleware/adminMiddleware";
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -42,45 +43,51 @@ const upload = multer({
     fileFilter: fileFilter
 });
 
-
-
-
 const router = express.Router();
 
-// Modify the getRestaurants method to fetch all restaurants without filtering
-router.get('/', RestaurantController.getAllRestaurants);
+// **ADMIN ROUTES FIRST** - These need to be before the general routes to avoid conflicts
+router.get('/admin/all', authMiddleware, adminMiddleware, RestaurantController.getAllRestaurantsForAdmin);
+router.put('/admin/:id/approve', authMiddleware, adminMiddleware, RestaurantController.approveRestaurant);
+router.put('/admin/:id/reject', authMiddleware, adminMiddleware, RestaurantController.rejectRestaurant);
+router.delete('/admin/:id', authMiddleware, adminMiddleware, RestaurantController.deleteRestaurantAdmin);
 
-// Special routes first - these need to be before the more general routes
-// Get restaurants for the authenticated user
-router.get('/user', authMiddleware, RestaurantController.getRestaurantsForCurrentUser);
+// PUBLIC ROUTES (no authentication required)
+// These routes need to be accessible for public booking
+router.get('/', RestaurantController.getAllRestaurants);
+router.get('/:id', RestaurantController.getRestaurantById);
+router.get('/:id/image', RestaurantController.getRestaurantImage);
+router.get('/:id/tables', RestaurantController.getRestaurantTables);
+router.get('/:id/hours', RestaurantController.getRestaurantHours);
 
 // Get restaurants by user ID (legacy route - keep for backward compatibility)
 router.get('/user/:user_id', RestaurantController.getRestaurantsByUserId);
 
+// Apply authentication to all routes below this point
+router.use(authMiddleware);
+
+// AUTHENTICATED ROUTES
+// Get restaurants for the authenticated user
+router.get('/user', RestaurantController.getRestaurantsForCurrentUser);
+
 // Restaurant CRUD operations
-router.post('/', authMiddleware, RestaurantController.createRestaurant);
-router.get('/:id', RestaurantController.getRestaurantById);
-router.put('/:id', authMiddleware, RestaurantController.updateRestaurant);
-router.delete('/:id', authMiddleware, RestaurantController.deleteRestaurant);
+router.post('/', RestaurantController.createRestaurant);
+router.put('/:id', RestaurantController.updateRestaurant);
+router.delete('/:id', RestaurantController.deleteRestaurant);
 
 // Tables Management
-router.get('/:id/tables', RestaurantController.getRestaurantTables);
-router.post('/:id/tables', authMiddleware, RestaurantController.createRestaurantTable);
-router.put('/:id/tables/:table_id', authMiddleware, RestaurantController.updateRestaurantTable);
-router.delete('/:id/tables/:table_id', authMiddleware, RestaurantController.deleteRestaurantTable);
+router.post('/:id/tables', RestaurantController.createRestaurantTable);
+router.put('/:id/tables/:table_id', RestaurantController.updateRestaurantTable);
+router.delete('/:id/tables/:table_id', RestaurantController.deleteRestaurantTable);
 
 // Hours Management
-router.get('/:id/hours', RestaurantController.getRestaurantHours);
-router.put('/:id/hours', authMiddleware, RestaurantController.updateRestaurantHours);
+router.put('/:id/hours', RestaurantController.updateRestaurantHours);
 
 // Restaurant Settings
 router.get('/:id/settings', RestaurantController.getRestaurantSettings);
-router.put('/:id/settings', authMiddleware, RestaurantController.updateRestaurantSettings);
+router.put('/:id/settings', RestaurantController.updateRestaurantSettings);
 
-// Add these routes to your existing routes
-// Add these routes to your existing restaurantRoutes.ts
-router.post('/:id/image', authMiddleware, upload.single('image'), RestaurantController.uploadRestaurantImage);
-router.delete('/:id/image', authMiddleware, RestaurantController.deleteRestaurantImage);
-router.get('/:id/image', RestaurantController.getRestaurantImage);
+// Image Management
+router.post('/:id/image', upload.single('image'), RestaurantController.uploadRestaurantImage);
+router.delete('/:id/image', RestaurantController.deleteRestaurantImage);
 
 export default router;

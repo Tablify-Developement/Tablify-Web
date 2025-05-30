@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
-
+import { useToast } from '@/hooks/use_toast';
 // Validation schema
 const registrationSchema = z.object({
     nom: z.string().min(1, "Last name is required"),
@@ -55,6 +55,7 @@ export default function RegisterPage() {
     const [submitSuccess, setSubmitSuccess] = useState(false);
     const router = useRouter();
     const { login } = useAuth();
+    const { toast } = useToast();
 
     // Form setup
     const form = useForm<z.infer<typeof registrationSchema>>({
@@ -90,6 +91,11 @@ export default function RegisterPage() {
 
             // Show success message
             setSubmitSuccess(true);
+            toast({
+                title: "Inscription réussie",
+                description: "Bienvenue sur Tablify 🎉",
+            });
+
 
             // Auto-login after successful registration
             try {
@@ -114,6 +120,10 @@ export default function RegisterPage() {
         } catch (error: any) {
             // Handle registration error
             setSubmitError(error.response?.data?.message || "Registration failed. Please try again.");
+            toast({
+                title: error.message,
+                variant: "destructive",
+            });
         } finally {
             setIsSubmitting(false);
         }

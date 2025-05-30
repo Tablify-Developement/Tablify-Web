@@ -1,32 +1,35 @@
+// File: backend/src/utils/mailer.ts
+import jwt from 'jsonwebtoken';
 import sgMail from '@sendgrid/mail';
-
-// Vérifier que les variables d’env sont présentes
-console.log('→ SENDGRID_API_KEY loaded:', Boolean(process.env.SENDGRID_API_KEY));
-console.log('→ EMAIL_FROM        loaded:', process.env.EMAIL_FROM);
-console.log('→ NEXT_PUBLIC_APP_URL loaded:', process.env.NEXT_PUBLIC_APP_URL);
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
-export async function sendVerificationEmail(to: string, token: string) {
-    const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/users/verify-email?token=${token}`;
+/**
+ * Envoie un email de vérification à l'utilisateur avec un JWT
+ * signé contenant son userId.
+ */
+export async function sendVerificationEmail(userEmail: string, userId: string) {
+    // Génère un JWT contenant l'ID utilisateur
+    const token = jwt.sign(
+        { userId },
+        process.env.JWT_EMAIL_SECRET!,
+        { expiresIn: '24h' }
+    );
+
+    // Construit le lien vers ton frontend
+    const link = `${process.env.FRONTEND_URL}/verify/${token}`;
+
     const msg = {
-        to,
+        to: userEmail,
         from: process.env.EMAIL_FROM!,
-        subject: 'Veuillez vérifier votre adresse email',
+        subject: '🔒 Confirmez votre adresse email',
         html: `
-      <p>Bonjour,</p>
-      <p>Merci pour votre inscription. Pour vérifier votre email, cliquez sur :</p>
-      <p><a href="${verifyUrl}">Valider mon email</a></p>
-      <p>Ce lien expire dans 24 heures.</p>
+      <h1>Bienvenue sur Tablify</h1>
+      <p>Pour valider votre compte, cliquez sur le lien ci-dessous :</p>
+      <a href="${link}">Vérifier mon email</a>
+      <p>Ce lien expirera dans 24 heures.</p>
     `,
     };
 
-    console.log(`→ Envoi du mail à ${to}…`);
-    try {
-        const [response] = await sgMail.send(msg);
-        console.log('→ SendGrid response status:', response.statusCode);
-        console.log('→ SendGrid response headers:', response.headers);
-    } catch (err: any) {
-        console.error('‼️ Erreur lors de l’envoi via SendGrid:', err);
-    }
+    await sgMail.send(msg);
 }
