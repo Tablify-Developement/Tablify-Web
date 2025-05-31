@@ -82,14 +82,41 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
       const matchScore = calculateSimpleMatchScore(userInterests, ownerInterests, commonInterests);
       
       if (matchScore >= (criteria.minMatchScore || 0)) {
+        // Log pour déboguer
+        console.log('==== DÉBOGAGE VALEURS EXACTES ====');
+        console.log(`Reservation ${reservation.id}:`);
+        console.log(`- party_size d'origine: ${reservation.party_size}`);
+        console.log(`- table_capacity: ${reservation.table_capacity || 'undefined'}`);
+        
+        // Pour le Social Matching, nous reconceptualisons le modèle de données
+        // Même si party_size = capacity dans la BD, nous considérons qu'il y a des places disponibles
+        // La capacité sociale est calculée comme 2 fois la capacité normale (pour autoriser le partage des tables)
+        const originalCapacity = reservation.table_capacity || Math.max(2, reservation.party_size);
+        const socialCapacity = Math.max(originalCapacity + 2, originalCapacity * 1.5);
+        const normalizedPartySize = Math.max(1, reservation.party_size);
+        
+        // Pour le débogage
+        console.log(`- Capacité originale: ${originalCapacity}`);
+        console.log(`- Capacité sociale: ${socialCapacity}`);
+        
+        // Ne montrer que les réservations qui ont encore de la place selon notre modèle social
+        if (normalizedPartySize >= socialCapacity) {
+          console.log(`❌ Skipping reservation - no social spots available (${normalizedPartySize}/${socialCapacity})`);
+          continue;
+        }
+        
+        console.log(`- party_size normalisé: ${normalizedPartySize}`);
+        console.log(`- available_spots sociaux calculés: ${socialCapacity - normalizedPartySize - 1} (avec 1 place réservée pour le host)`);
+        console.log('================================');
+        
         matchResults.push({
           id: reservation.id,
           restaurant_name: reservation.restaurant_name,
           restaurant_type: reservation.restaurant_type,
           reservation_date: reservation.reservation_date,
           reservation_time: reservation.reservation_time,
-          party_size: reservation.party_size,
-          available_spots: 8 - reservation.party_size, // Supposons max 8 personnes
+          party_size: normalizedPartySize, // Utiliser notre interprétation sociale du party_size
+          available_spots: socialCapacity - normalizedPartySize - 1, // Utiliser la capacité sociale pour le matching et réserver 1 place pour le host
           score_matching: matchScore,
           interets_communs: commonInterests,
           restaurant: {
@@ -217,9 +244,11 @@ async function getReservationsWithFreeSpots() {
         r.restaurant_type,
         r.address,
         r.contact,
-        r.description
+        r.description,
+        COALESCE(rt.capacity, 8) as table_capacity
       FROM restaurant_reservations rr
       JOIN restaurants r ON rr.restaurant_id = r.id
+      LEFT JOIN restaurant_tables rt ON rr.table_id = rt.id
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND rr.party_size < 8

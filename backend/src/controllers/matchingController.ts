@@ -85,16 +85,17 @@ export const MatchingController = {
                 return;
             }
 
-            // Vérifier que la réservation existe et a des places disponibles
+            // Vérifier que la réservation existe et a des places disponibles en tenant compte de la capacité réelle de la table
             const checkQuery = `
                 SELECT 
                     rr.*,
-                    r.restaurant_name
+                    r.restaurant_name,
+                    COALESCE(rt.capacity, 8) as table_capacity
                 FROM restaurant_reservations rr
                 JOIN restaurants r ON rr.restaurant_id = r.id
+                LEFT JOIN restaurant_tables rt ON rr.table_id = rt.id
                 WHERE rr.id = $1 
                   AND rr.status IN ('confirmed', 'pending')
-                  AND rr.party_size < 8
             `;
             
             const reservationResult = await pool.query(checkQuery, [reservation_id]);
@@ -122,6 +123,15 @@ export const MatchingController = {
 
             const reservationData = reservationResult.rows[0];
 
+            // Vérifier si l'utilisateur est le host (créateur) de la réservation
+            if (reservationData.customer_email === req.user?.email) {
+                res.status(400).json({ 
+                    error: 'You are the host of this reservation',
+                    message: 'You cannot join a reservation you are hosting'
+                });
+                return;
+            }
+            
             // Vérifier si l'utilisateur a déjà rejoint cette réservation
             const currentUserId = userId.toString();
             if (reservationData.special_requests && reservationData.special_requests.includes(`(${currentUserId})`)) {
@@ -132,22 +142,24 @@ export const MatchingController = {
                 return;
             }
 
+            // Utiliser la capacité réelle de la table ou la valeur par défaut de 8
+            const originalCapacity = reservationData.table_capacity || 8;
+            
+            // Pour le Social Matching, appliquer le même concept de capacité sociale que dans matchingModel.ts
+            const socialCapacity = Math.max(originalCapacity + 2, originalCapacity * 1.5);
+            console.log(`Original capacity: ${originalCapacity}, Social capacity: ${socialCapacity}, Current party size: ${reservationData.party_size}`);
+            
             const newPartySize = reservationData.party_size + (joiner_info.party_size_increase || 1);
 
-            // Vérifier qu'on ne dépasse pas la capacité max
-            if (newPartySize > 8) {
+            // Vérifier qu'on ne dépasse pas la capacité sociale moins la place réservée pour le host
+            const availableSocialCapacity = socialCapacity - 1; // -1 pour réserver une place pour le host
+            
+            if (newPartySize > availableSocialCapacity) {
+                const spotsLeft = Math.max(0, availableSocialCapacity - reservationData.party_size);
                 res.status(400).json({ 
-                    error: 'Plus assez de places disponibles',
-                    available_spots: 8 - reservationData.party_size 
-                });
-                return;
-            }
-
-            // Vérifier qu'on ne dépasse pas la capacité max
-            if (newPartySize > 8) {
-                res.status(400).json({ 
-                    error: 'Plus assez de places disponibles',
-                    available_spots: 8 - reservation.party_size 
+                    error: 'Not enough spots available',
+                    message: `This social table can only accommodate a maximum of ${availableSocialCapacity} people`,
+                    available_spots: spotsLeft
                 });
                 return;
             }

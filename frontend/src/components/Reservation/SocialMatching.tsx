@@ -350,11 +350,11 @@ export default function SocialMatchingPage() {
                                 <div className="flex items-center justify-between text-sm bg-muted/30 rounded-lg p-2">
                                     <div className="flex items-center text-muted-foreground">
                                         <Users className="h-3 w-3 mr-1" />
-                                        {match.party_size} booked
+                                        {Math.max(1, match.party_size)} booked
                                     </div>
                                     <div className="flex items-center text-green-600 font-medium">
                                         <UserPlus className="h-3 w-3 mr-1" />
-                                        {match.available_spots} spots left
+                                        {Math.max(0, match.available_spots)} spots left
                                     </div>
                                 </div>
 
