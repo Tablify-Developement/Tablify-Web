@@ -347,22 +347,25 @@ export default function SettingsProfile() {
                                     </div>
                                 ) : userInterets.length > 0 ? (
                                     <div className="flex flex-wrap gap-2">
-                                        {userInterets.map((interet) => (
-                                            <div 
-                                                key={interet.id_interet} 
-                                                className="flex items-center bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full"
-                                            >
-                                                <span>{interet.nom_interet}</span>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="sm" 
-                                                    className="h-6 w-6 p-0 ml-1 hover:bg-secondary-foreground/10"
-                                                    onClick={() => handleRemoveInteret(interet.id_interet)}
+                                        {userInterets
+                                            .filter(interet => interet.nom_interet !== 'MATCHING_ENABLED')
+                                            .map((interet) => (
+                                                <div 
+                                                    key={interet.id_interet} 
+                                                    className="flex items-center bg-secondary text-secondary-foreground px-3 py-1.5 rounded-full"
                                                 >
-                                                    <X className="h-3 w-3" />
-                                                </Button>
-                                            </div>
+                                                    <span>{interet.nom_interet}</span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="h-6 w-6 p-0 ml-1 hover:bg-secondary-foreground/10"
+                                                        onClick={() => handleRemoveInteret(interet.id_interet)}
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </Button>
+                                                </div>
                                         ))}
+
                                     </div>
                                 ) : (
                                     <p className="text-muted-foreground">
