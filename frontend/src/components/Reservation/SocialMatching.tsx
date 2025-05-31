@@ -430,7 +430,7 @@ export default function SocialMatchingPage() {
                                 <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
                                     <div>📅 {format(new Date(selectedMatch.reservation_date), 'PPP')}</div>
                                     <div>🕒 {selectedMatch.reservation_time}</div>
-                                    <div>👥 {selectedMatch.party_size + 1} people total</div>
+                                    <div>👥 {Math.max(0, selectedMatch.party_size - 1)} people total</div>
                                     <div>⭐ {selectedMatch.score_matching}% compatibility</div>
                                 </div>
                                 <div className="mt-2">
