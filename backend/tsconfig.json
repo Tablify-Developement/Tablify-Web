@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "types": ["jest", "node"],
+    "types": ["node", "jest"],
     "target": "ES6",
     "module": "commonjs",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,6 +14,7 @@
   },
   "include": ["src/**/*", "**/*.test.ts"],
   "exclude": ["node_modules"],
-  "noEmitOnError": false,
-  "skipLibCheck": true
+  "ts-node": {
+    "transpileOnly": true
+  }
 }
