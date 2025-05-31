@@ -244,7 +244,7 @@ export default function SocialMatchingPage() {
                         Join compatible dining companions based on your shared interests
                     </p>
                 </div>
-                <a href="/book" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90">
+                <a href="/book" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-secondary text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80 transition-colors">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     Make a Reservation
                 </a>
@@ -350,7 +350,7 @@ export default function SocialMatchingPage() {
                                 <div className="flex items-center justify-between text-sm bg-muted/30 rounded-lg p-2">
                                     <div className="flex items-center text-muted-foreground">
                                         <Users className="h-3 w-3 mr-1" />
-                                        {Math.max(1, match.party_size)} booked
+                                        {Math.max(0, match.party_size - 1)} booked
                                     </div>
                                     <div className="flex items-center text-green-600 font-medium">
                                         <UserPlus className="h-3 w-3 mr-1" />
@@ -379,7 +379,11 @@ export default function SocialMatchingPage() {
                                 <div className="text-xs text-muted-foreground bg-muted/20 rounded p-2">
                                     <p><strong>Host:</strong> {match.customer_info.customer_name}</p>
                                     {match.customer_info.special_requests && (
-                                        <p className="mt-1"><strong>Note:</strong> {match.customer_info.special_requests}</p>
+                                        <p className="mt-1">
+                                            <strong>Participants:</strong> {match.customer_info.special_requests.startsWith('Joined by:') 
+                                                ? match.customer_info.special_requests.replace('Joined by: User', 'Other diners have joined').replace(/\([^)]*\)/g, '')
+                                                : match.customer_info.special_requests}
+                                        </p>
                                     )}
                                 </div>
                             </CardContent>

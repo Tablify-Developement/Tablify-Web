@@ -435,7 +435,7 @@ export default function EnhancedBookingPage() {
         <div className="container mx-auto py-8 px-4">
             <div className="flex flex-col md:flex-row items-center justify-between mb-8">
                 <h1 className="text-3xl font-bold">Make a Restaurant Reservation</h1>
-                <a href="/social-matching" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90">
+                <a href="/social-matching" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-secondary text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80 transition-colors">
                     <Users className="mr-2 h-4 w-4" />
                     Social Dining
                 </a>
