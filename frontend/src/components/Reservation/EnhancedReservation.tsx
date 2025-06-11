@@ -36,8 +36,7 @@ import {
     Phone,
     Loader2,
     Filter,
-    ChevronRight,
-    ImageIcon
+    ChevronRight
 } from 'lucide-react';
 import { format, addDays, startOfDay, isAfter, isBefore, isToday, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -49,6 +48,10 @@ import {
 } from '@/services/reservationService';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import { ImageIcon } from 'lucide-react';
+
+// Import API_BASE_URL from centralized constants file
+import { API_BASE_URL } from '@/lib/constants';
 
 interface Restaurant {
     id: number;
@@ -94,13 +97,10 @@ interface ReservationFormData {
 
 type BookingStep = 'datetime' | 'table' | 'contact';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-
 export default function EnhancedBookingPage() {
     const router = useRouter();
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
-    const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('all');
@@ -117,6 +117,7 @@ export default function EnhancedBookingPage() {
     const [bookingStep, setBookingStep] = useState<BookingStep>('datetime');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
 
     const [reservationForm, setReservationForm] = useState<ReservationFormData>({
         restaurant_id: 0,
@@ -139,10 +140,12 @@ export default function EnhancedBookingPage() {
             }
             return null;
         } catch (error) {
+            console.error(`Error fetching image for restaurant ${restaurantId}:`, error);
             return null;
         }
     };
 
+    // Get restaurant image URL
     const getRestaurantImageUrl = (restaurantId: number) => {
         const imageFilename = restaurantImages[restaurantId];
         if (!imageFilename) return null;
@@ -199,7 +202,7 @@ export default function EnhancedBookingPage() {
                 setRestaurants(transformedData);
                 setFilteredRestaurants(transformedData);
 
-                // Fetch images for approved restaurants only
+                // Fetch images for all restaurants
                 const imagesPromises = transformedData.map(async restaurant => {
                     const image = await fetchRestaurantImage(restaurant.id);
                     return { id: restaurant.id, image };
@@ -505,7 +508,13 @@ export default function EnhancedBookingPage() {
 
     return (
         <div className="container mx-auto py-8 px-4">
-            <h1 className="text-3xl font-bold mb-8 text-center">Make a Restaurant Reservation</h1>
+            <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+                <h1 className="text-3xl font-bold">Make a Restaurant Reservation</h1>
+                <a href="/social-matching" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-secondary text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80 transition-colors">
+                    <Users className="mr-2 h-4 w-4" />
+                    Social Dining
+                </a>
+            </div>
 
             {/* Search and Filter Bar */}
             <div className="flex flex-col md:flex-row gap-4 mb-8">
@@ -554,9 +563,9 @@ export default function EnhancedBookingPage() {
                     {filteredRestaurants.map((restaurant) => (
                         <Card key={restaurant.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                             <div className="h-48 bg-muted relative">
-                                {getRestaurantImageUrl(restaurant.id) ? (
+                                {restaurant.image ? (
                                     <img
-                                        src={getRestaurantImageUrl(restaurant.id)!}
+                                        src={restaurant.image}
                                         alt={restaurant.name}
                                         className="w-full h-full object-cover"
                                     />
@@ -613,6 +622,7 @@ export default function EnhancedBookingPage() {
                         </DialogDescription>
                     </DialogHeader>
 
+                    {/* Restaurant Image in Dialog */}
                     {selectedRestaurant && (
                         <div className="mb-4 h-40 relative rounded-md overflow-hidden">
                             {getRestaurantImageUrl(selectedRestaurant.id) ? (
@@ -894,7 +904,7 @@ export default function EnhancedBookingPage() {
 
                                         <div className="space-y-2">
                                             <Label htmlFor="customer_email">
-                                                Email *
+                                                Email (Optional)
                                             </Label>
                                             <Input
                                                 id="customer_email"
@@ -982,4 +992,4 @@ export default function EnhancedBookingPage() {
             </Dialog>
         </div>
     );
-}
+} 

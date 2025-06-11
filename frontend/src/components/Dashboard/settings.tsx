@@ -36,10 +36,13 @@ import {
     Settings,
     ImageIcon,
     Upload,
-    X
+    X,
+    Plus
 } from 'lucide-react';
 import { fetchRestaurantSettings, updateRestaurantSettings } from '@/services/restaurantService';
+// Import du service d'intérêts retiré car géré dans page.tsx
 import { useRestaurant } from '@/context/restaurant-context';
+import { useSession } from 'next-auth/react';
 import axios from 'axios';
 
 // Define the type for restaurant settings
@@ -54,6 +57,7 @@ interface RestaurantSettings {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export default function SettingsPage() {
+    const { data: session } = useSession();
     const { selectedRestaurant } = useRestaurant();
     const restaurantId = selectedRestaurant?.id || 0;
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -381,13 +385,13 @@ export default function SettingsPage() {
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                 </div>
             ) : (
-                <Tabs defaultValue="general" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="general">General Information</TabsTrigger>
-                        <TabsTrigger value="appearance">Appearance</TabsTrigger>
+                <Tabs defaultValue="general">
+                    <TabsList className="mb-4">
+                        <TabsTrigger value="general">Général</TabsTrigger>
+                        <TabsTrigger value="image">Image</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="general" className="mt-6 space-y-6">
+                    <TabsContent value="general">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Restaurant Details</CardTitle>
@@ -488,7 +492,7 @@ export default function SettingsPage() {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="appearance" className="mt-6 space-y-6">
+                    <TabsContent value="image">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Restaurant Image</CardTitle>

@@ -16,6 +16,7 @@ declare global {
 // Define user type with role
 export interface User {
     id: number | string;
+    id_utilisateur?: string; // UUID de l'utilisateur dans la base de données
     nom: string;
     prenom: string;
     mail: string;
