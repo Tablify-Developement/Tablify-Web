@@ -12,6 +12,9 @@ import {
 export const ReservationController = {
     // Create a new reservation
     createReservation: async (req: Request, res: Response): Promise<void> => {
+        console.log('=== RESERVATION DEBUG ===');
+        console.log('Request body:', JSON.stringify(req.body, null, 2));
+        
         const {
             restaurant_id,
             table_id,
@@ -24,8 +27,29 @@ export const ReservationController = {
             special_requests,
         } = req.body;
 
-        if (!restaurant_id || !customer_name || !customer_phone || !party_size || !reservation_date || !reservation_time) {
-            res.status(400).json({ error: 'Missing required fields' });
+        console.log('Extracted fields:', {
+            restaurant_id,
+            table_id,
+            customer_name,
+            customer_email,
+            customer_phone,
+            party_size,
+            reservation_date,
+            reservation_time,
+            special_requests
+        });
+
+        if (!restaurant_id || !customer_name || !party_size || !reservation_date || !reservation_time) {
+            console.log('❌ Missing required fields validation failed');
+            console.log('Missing fields check:', {
+                restaurant_id: !!restaurant_id,
+                customer_name: !!customer_name,
+                customer_phone: !!customer_phone,
+                party_size: !!party_size,
+                reservation_date: !!reservation_date,
+                reservation_time: !!reservation_time
+            });
+            res.status(400).json({ error: 'Missing required fields: restaurant_id, customer_name, party_size, reservation_date, reservation_time' });
             return;
         }
 

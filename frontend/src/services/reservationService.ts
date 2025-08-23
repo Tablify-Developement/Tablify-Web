@@ -47,7 +47,15 @@ export const createReservation = async (data: ReservationCreate): Promise<Reserv
             table_id: data.table_id
         };
 
-        const response = await axios.post(`${API_BASE_URL}/reservations`, requestData);
+        // Get auth token
+        const token = localStorage.getItem('authToken');
+        
+        const response = await axios.post(`${API_BASE_URL}/reservations`, requestData, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
 
         // Check if the response contains the reservation directly or nested
         const rawReservation = response.data.reservation || response.data;

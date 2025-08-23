@@ -445,7 +445,7 @@ export default function EnhancedBookingPage() {
         try {
             const formattedDate = format(reservationForm.date, 'yyyy-MM-dd');
 
-            await createReservation({
+            const reservationData = {
                 restaurant_id: reservationForm.restaurant_id,
                 customer_name: reservationForm.customer_name,
                 customer_phone: reservationForm.customer_phone,
@@ -455,7 +455,13 @@ export default function EnhancedBookingPage() {
                 party_size: reservationForm.party_size,
                 special_requests: reservationForm.special_requests,
                 table_id: reservationForm.table_id
-            });
+            };
+
+            console.log('🔍 Interface - Données envoyées:', reservationData);
+            console.log('🔍 Interface - Date formatée:', formattedDate);
+            console.log('🔍 Interface - Date originale:', reservationForm.date);
+
+            await createReservation(reservationData);
 
             setMessage({
                 type: 'success',
@@ -483,6 +489,7 @@ export default function EnhancedBookingPage() {
             }, 2000);
 
         } catch (error) {
+            console.error('🔍 Interface - Erreur lors de la création:', error);
             setMessage({
                 type: 'error',
                 text: 'Failed to create reservation. Please try again.',
@@ -755,14 +762,14 @@ export default function EnhancedBookingPage() {
                                                 Please select a date first to see available times.
                                             </p>
                                         ) : availableTimeSlots.length === 0 ? (
-                                            <p className="text-sm text-red-500">
-                                                No available time slots for this date. Please choose another date.
+                                            <p className="text-sm text-muted-foreground">
+                                                No available time slots for this date and party size.
                                             </p>
                                         ) : (
                                             <div className="grid grid-cols-3 gap-2">
-                                                {availableTimeSlots.map((timeSlot) => (
+                                                {availableTimeSlots.map((timeSlot, index) => (
                                                     <Button
-                                                        key={timeSlot}
+                                                        key={`${timeSlot}-${index}`}
                                                         type="button"
                                                         variant={reservationForm.time === timeSlot ? "default" : "outline"}
                                                         onClick={() => handleTimeSelection(timeSlot)}

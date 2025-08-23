@@ -441,6 +441,11 @@ export const RestaurantController = {
         try {
             const filename = await RestaurantModel.getRestaurantImage(Number(id));
 
+            if (!filename) {
+                res.status(404).json({ error: 'No image found for this restaurant', image: null });
+                return;
+            }
+
             res.status(200).json({ image: filename });
         } catch (error: any) {
             logger.error(`Error fetching restaurant image: ${error.message}`);

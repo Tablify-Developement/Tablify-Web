@@ -88,6 +88,11 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
       // Calculer le score basé sur l'intensité et les catégories
       const matchScore = calculateAdvancedMatchScore(userInterests, ownerInterests, commonInterests);
       
+      console.log(`🎯 Match score calculated: ${matchScore}% for reservation ${reservation.id}`);
+      console.log(`- User interests:`, userInterests.map(i => `${i.nom_interet}(${i.intensite})`));
+      console.log(`- Owner interests:`, ownerInterests.map(i => `${i.nom_interet}(${i.intensite})`));
+      console.log(`- Common interests:`, commonInterests.map(i => `${i.nom_interet}(${i.intensite})`));
+      
       if (matchScore >= (criteria.minMatchScore || 0)) {
         // Log pour déboguer
         console.log('==== DÉBOGAGE VALEURS EXACTES ====');
@@ -288,7 +293,11 @@ function calculateAdvancedMatchScore(
   ownerInterests: InterestWithIntensity[], 
   commonInterests: InterestWithIntensity[]
 ): number {
+  console.log('🔍 calculateAdvancedMatchScore called with:');
+  console.log('- commonInterests.length:', commonInterests.length);
+  
   if (commonInterests.length === 0) {
+    console.log('❌ No common interests, returning 0');
     return 0;
   }
   
@@ -298,7 +307,10 @@ function calculateAdvancedMatchScore(
   // Pour chaque intérêt commun, calculer le score pondéré
   for (const userInterest of commonInterests) {
     const ownerInterest = ownerInterests.find(oi => oi.nom_interet === userInterest.nom_interet);
-    if (!ownerInterest) continue;
+    if (!ownerInterest) {
+      console.log(`⚠️ Owner interest not found for: ${userInterest.nom_interet}`);
+      continue;
+    }
     
     // Calculer la moyenne des intensités
     const avgIntensity = (userInterest.intensite + ownerInterest.intensite) / 2;
@@ -309,21 +321,39 @@ function calculateAdvancedMatchScore(
     // Score pondéré pour cet intérêt
     const interestScore = avgIntensity * categoryBonus;
     
+    console.log(`📊 Interest: ${userInterest.nom_interet}`);
+    console.log(`  - User intensity: ${userInterest.intensite}, Owner intensity: ${ownerInterest.intensite}`);
+    console.log(`  - Avg intensity: ${avgIntensity}, Category: ${userInterest.categorie}, Bonus: ${categoryBonus}`);
+    console.log(`  - Interest score: ${interestScore}`);
+    
     totalWeightedScore += interestScore;
     totalComparisons++;
   }
   
   if (totalComparisons === 0) {
+    console.log('❌ No valid comparisons, returning 0');
     return 0;
   }
   
   // Score de base = moyenne des scores d'intérêts communs
   const baseScore = totalWeightedScore / totalComparisons;
   
+  // Convertir en pourcentage (intensité max = 5, donc normaliser sur 100)
+  const normalizedScore = (baseScore / 5) * 100;
+  
   // Bonus pour avoir plus d'intérêts communs
   const commonInterestsBonus = Math.min(commonInterests.length * 0.1, 0.4);
   
-  const finalScore = baseScore * (1 + commonInterestsBonus);
+  const finalScore = normalizedScore * (1 + commonInterestsBonus);
+  
+  console.log(`🎯 Final calculation:`);
+  console.log(`  - Total weighted score: ${totalWeightedScore}`);
+  console.log(`  - Total comparisons: ${totalComparisons}`);
+  console.log(`  - Base score: ${baseScore}`);
+  console.log(`  - Normalized score (on 100): ${normalizedScore}`);
+  console.log(`  - Common interests bonus: ${commonInterestsBonus}`);
+  console.log(`  - Final score before rounding: ${finalScore}`);
+  console.log(`  - Final score after rounding: ${Math.round(Math.min(finalScore, 100))}`);
   
   return Math.round(Math.min(finalScore, 100));
 }
