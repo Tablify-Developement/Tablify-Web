@@ -3,17 +3,17 @@ import { logger } from '../utils/logger';
 import { v4 as uuidv4 } from 'uuid';
 
 export const InteretModel = {
-    async createInteret(id_interet: string | null, id_utilisateur: string, nom_interet: string) {
+    async createInteret(id_interet: string | null, id_utilisateur: string, nom_interet: string, intensite: number = 3, categorie?: string) {
         // Si aucun ID n'est fourni, générer un UUID
         const interetId = id_interet || uuidv4();
         try {
             const query = `
-                INSERT INTO interets(id_interet, id_utilisateur, nom_interet)
-                VALUES($1, $2, $3)
+                INSERT INTO interets(id_interet, id_utilisateur, nom_interet, intensite, categorie)
+                VALUES($1, $2, $3, $4, $5)
                 RETURNING *
             `;
 
-            const values = [interetId, id_utilisateur, nom_interet];
+            const values = [interetId, id_utilisateur, nom_interet, intensite, categorie || null];
             const result = await db.query(query, values);
 
             logger.success('Interet created');
@@ -119,6 +119,73 @@ export const InteretModel = {
             return result.rows[0];
         } catch (error: any) {
             logger.error(`Error deleting interet: ${error.message}`);
+            throw error;
+        }
+    },
+
+    // Mettre à jour l'intensité d'un intérêt
+    async updateInteretIntensity(id_interet: string, intensite: number) {
+        try {
+            const query = `
+                UPDATE interets 
+                SET intensite = $2
+                WHERE id_interet = $1
+                RETURNING *
+            `;
+
+            const result = await db.query(query, [id_interet, intensite]);
+
+            if (result.rows.length === 0) {
+                throw new Error('Interet not found');
+            }
+
+            logger.success('Interest intensity updated');
+            return result.rows[0];
+        } catch (error: any) {
+            logger.error(`Error updating interest intensity: ${error.message}`);
+            throw error;
+        }
+    },
+
+    // Récupérer les intérêts avec intensité
+    async getInteretsWithIntensity(id_utilisateur: string) {
+        try {
+            const query = `
+                SELECT * FROM interets
+                WHERE id_utilisateur = $1 AND nom_interet != 'MATCHING_ENABLED'
+                ORDER BY intensite DESC, created_at DESC
+            `;
+
+            const result = await db.query(query, [id_utilisateur]);
+
+            logger.success('User interests with intensity fetched');
+            return result.rows;
+        } catch (error: any) {
+            logger.error(`Error fetching user interests with intensity: ${error.message}`);
+            throw error;
+        }
+    },
+
+    // Obtenir les statistiques d'intensité
+    async getIntensityStats(id_utilisateur: string) {
+        try {
+            const query = `
+                SELECT 
+                    intensite,
+                    COUNT(*) as count,
+                    ROUND(AVG(intensite), 2) as moyenne
+                FROM interets 
+                WHERE id_utilisateur = $1 AND nom_interet != 'MATCHING_ENABLED'
+                GROUP BY intensite
+                ORDER BY intensite
+            `;
+
+            const result = await db.query(query, [id_utilisateur]);
+
+            logger.success('Intensity statistics fetched');
+            return result.rows;
+        } catch (error: any) {
+            logger.error(`Error fetching intensity statistics: ${error.message}`);
             throw error;
         }
     },

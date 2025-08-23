@@ -84,9 +84,15 @@ CREATE TABLE IF NOT EXISTS interets (
                                         id_interet UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                                         id_utilisateur UUID NOT NULL REFERENCES utilisateurs(id_utilisateur) ON DELETE CASCADE,
                                         nom_interet VARCHAR(255) NOT NULL,
+                                        intensite INTEGER DEFAULT 3 CHECK (intensite >= 1 AND intensite <= 5),
+                                        categorie VARCHAR(100),
                                         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                                         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_interets_intensite ON interets(intensite);
+CREATE INDEX IF NOT EXISTS idx_interets_categorie ON interets(categorie);
 
 -- Create Reservations table
 CREATE TABLE IF NOT EXISTS restaurant_reservations (

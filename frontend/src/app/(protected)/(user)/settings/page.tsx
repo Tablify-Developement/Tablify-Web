@@ -31,6 +31,7 @@ export default function SettingsProfile() {
     const [userInterets, setUserInterets] = useState<Interet[]>([]);
     const [suggestedInterets, setSuggestedInterets] = useState<{[category: string]: string[]}>({});
     const [newInteret, setNewInteret] = useState<string>('');
+    const [newInteretIntensity, setNewInteretIntensity] = useState<number>(3);
     const [isLoadingInterets, setIsLoadingInterets] = useState(false);
     const [interetsMessage, setInteretsMessage] = useState({ type: '', text: '' });
     const [activeCategory, setActiveCategory] = useState<string>('');
@@ -179,17 +180,30 @@ export default function SettingsProfile() {
     };
     
     // Add an interest to the user
-    const handleAddInteret = async (nomInteret: string) => {
+    const handleAddInteret = async (nomInteret: string, intensite?: number, categorie?: string) => {
         if (!userInfo.id_utilisateur || !nomInteret.trim()) return;
         
+        const finalIntensity = intensite || newInteretIntensity;
+        
+        console.log('🎯 Adding interest with details:', {
+            userId: userInfo.id_utilisateur,
+            interest: nomInteret,
+            intensity: finalIntensity,
+            category: categorie || 'Manual'
+        });
+        
         try {
-            await interetService.addInteret(userInfo.id_utilisateur, nomInteret);
+            const response = await interetService.addInteret(userInfo.id_utilisateur, nomInteret, finalIntensity, categorie);
+            console.log('✅ Interest added successfully:', response.data);
+            
             fetchUserInterets(userInfo.id_utilisateur); // Refresh the user's interests list
             setNewInteret(''); // Reset the input field
-            setInteretsMessage({ type: 'success', text: 'Interest added successfully!' });
+            setNewInteretIntensity(3); // Reset intensity to default
+            setInteretsMessage({ type: 'success', text: `Interest added with intensity ${finalIntensity}/5!` });
             setTimeout(() => setInteretsMessage({ type: '', text: '' }), 3000);
         } catch (error: any) {
-            console.error("Error adding interest:", error);
+            console.error("❌ Error adding interest:", error);
+            console.error("Error details:", error.response?.data);
             
             // Check if it's a duplicate interest error (status code 409)
             if (error.response && error.response.status === 409) {
@@ -376,37 +390,88 @@ export default function SettingsProfile() {
                                     </div>
                                 )}
 
+                                {/* Champ pour ajouter un nouvel intérêt */}
+                                <div className="space-y-3 mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder="Enter a new interest"
+                                            value={newInteret}
+                                            onChange={(e) => setNewInteret(e.target.value)}
+                                            className="flex-1"
+                                        />
+                                        <Button 
+                                            onClick={() => handleAddInteret(newInteret)}
+                                            disabled={!newInteret.trim()}
+                                        >
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            Add
+                                        </Button>
+                                    </div>
+                                    
+                                    {/* Intensity Selector */}
+                                    <div className="flex items-center gap-4 px-2">
+                                        <Label className="text-sm font-medium min-w-fit">Interest Level:</Label>
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <span className="text-xs text-muted-foreground">Low</span>
+                                            <div className="flex items-center gap-1">
+                                                {[1, 2, 3, 4, 5].map((level) => (
+                                                    <button
+                                                        key={level}
+                                                        type="button"
+                                                        onClick={() => setNewInteretIntensity(level)}
+                                                        className={`w-8 h-8 rounded-full border-2 text-xs font-medium transition-all ${
+                                                            newInteretIntensity >= level
+                                                                ? 'bg-primary text-primary-foreground border-primary'
+                                                                : 'bg-background border-muted-foreground/30 hover:border-muted-foreground/50'
+                                                        }`}
+                                                    >
+                                                        {level}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <span className="text-xs text-muted-foreground">High</span>
+                                            <span className="text-sm font-medium text-primary ml-2">
+                                                {newInteretIntensity}/5
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 {/* Catégories d'intérêts */}
                                 {Object.keys(suggestedInterets).length > 0 && (
-                                    <div>
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            {Object.keys(suggestedInterets).map((category) => (
-                                                <Button
-                                                    key={category}
-                                                    variant={activeCategory === category ? "default" : "outline"}
-                                                    onClick={() => setActiveCategory(category)}
-                                                    size="sm"
-                                                >
-                                                    {category}
-                                                </Button>
-                                            ))}
+                                    <div className="space-y-6">
+                                        <div>
+                                            <h4 className="text-sm font-medium mb-2">Categories</h4>
+                                            <div className="flex flex-wrap gap-2 mb-6">
+                                                {Object.keys(suggestedInterets).map((category) => (
+                                                    <Button 
+                                                        key={category}
+                                                        variant={activeCategory === category ? "default" : "outline"}
+                                                        size="sm"
+                                                        onClick={() => setActiveCategory(category)}
+                                                        className="rounded-full"
+                                                    >
+                                                        {category}
+                                                    </Button>
+                                                ))}
+                                            </div>
                                         </div>
 
-                                        {/* Suggestions d'intérêts basées sur la catégorie active */}
+                                        {/* Affichage des intérêts de la catégorie sélectionnée */}
                                         {activeCategory && suggestedInterets[activeCategory] && (
-                                            <div className="mt-4">
-                                                <h4 className="text-sm font-medium mb-2">Suggested {activeCategory} Interests:</h4>
+                                            <div>
+                                                <h4 className="text-sm font-medium mb-2 text-primary">{activeCategory} Interests</h4>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {suggestedInterets[activeCategory].map((interest) => (
-                                                        <Button 
-                                                            key={interest}
+                                                    {suggestedInterets[activeCategory].map((interet, index) => (
+                                                        <Button
+                                                            key={`${activeCategory}-${index}`}
                                                             variant="outline"
                                                             size="sm"
-                                                            className="flex items-center"
-                                                            onClick={() => handleAddInteret(interest)}
+                                                            onClick={() => handleAddInteret(interet, newInteretIntensity, activeCategory)}
+                                                            className="rounded-full"
                                                         >
-                                                            <Plus className="h-3 w-3 mr-1" />
-                                                            {interest}
+                                                            <Plus className="mr-1 h-3 w-3" />
+                                                            {interet}
                                                         </Button>
                                                     ))}
                                                 </div>

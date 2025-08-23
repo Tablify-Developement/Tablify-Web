@@ -7,14 +7,21 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-// Interface simplifiée pour les critères de matching
+// Interface pour les critères de matching
 interface MatchingCriteria {
   userId: string;
   maxResults?: number;
   minMatchScore?: number;
 }
 
-// Interface simplifiée pour les résultats
+// Interface pour les intérêts avec intensité
+interface InterestWithIntensity {
+  nom_interet: string;
+  intensite: number;
+  categorie?: string;
+}
+
+// Interface pour les résultats
 interface MatchResult {
   id: number;
   restaurant_name: string;
@@ -24,7 +31,7 @@ interface MatchResult {
   party_size: number;
   available_spots: number;
   score_matching: number;
-  interets_communs: string[];
+  interets_communs: InterestWithIntensity[];
   restaurant: {
     address: string;
     contact: string;
@@ -70,7 +77,7 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
       
       // Calculer les intérêts communs
       const commonInterests = userInterests.filter(interest => 
-        ownerInterests.includes(interest)
+        ownerInterests.some(ownerInterest => ownerInterest.nom_interet === interest.nom_interet)
       );
       
       if (commonInterests.length === 0) {
@@ -78,8 +85,8 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
         continue;
       }
       
-      // Calculer le score basé uniquement sur les intérêts communs
-      const matchScore = calculateSimpleMatchScore(userInterests, ownerInterests, commonInterests);
+      // Calculer le score basé sur l'intensité et les catégories
+      const matchScore = calculateAdvancedMatchScore(userInterests, ownerInterests, commonInterests);
       
       if (matchScore >= (criteria.minMatchScore || 0)) {
         // Log pour déboguer
@@ -150,19 +157,25 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
   }
 };
 
-// Récupérer les VRAIS intérêts d'un utilisateur (sans MATCHING_ENABLED)
-async function getUserRealInterests(userId: string): Promise<string[]> {
+// Récupérer les intérêts d'un utilisateur avec intensité et catégorie
+async function getUserRealInterests(userId: string): Promise<InterestWithIntensity[]> {
   try {
     const query = `
-      SELECT nom_interet FROM interets
+      SELECT nom_interet, intensite, categorie FROM interets
       WHERE id_utilisateur = $1
     `;
     
     const result = await pool.query(query, [userId]);
-    const allInterests = result.rows.map(row => row.nom_interet.toLowerCase().trim());
+    const allInterests = result.rows.map(row => ({
+      nom_interet: row.nom_interet.toLowerCase().trim(),
+      intensite: row.intensite || 3,
+      categorie: row.categorie
+    }));
     
     // Vérifier que le matching est activé
-    const hasMatchingEnabled = allInterests.includes('matching_enabled');
+    const hasMatchingEnabled = allInterests.some(interest => 
+      interest.nom_interet === 'matching_enabled'
+    );
     
     if (!hasMatchingEnabled) {
       console.log(`User ${userId} has not enabled matching`);
@@ -171,7 +184,7 @@ async function getUserRealInterests(userId: string): Promise<string[]> {
     
     // Retourner seulement les vrais intérêts (pas le flag technique)
     const realInterests = allInterests.filter(interest => 
-      interest !== 'matching_enabled'
+      interest.nom_interet !== 'matching_enabled'
     );
     
     return realInterests;
@@ -181,8 +194,8 @@ async function getUserRealInterests(userId: string): Promise<string[]> {
   }
 }
 
-// Récupérer les VRAIS intérêts d'un utilisateur par email
-async function getUserRealInterestsByEmail(email: string): Promise<string[]> {
+// Récupérer les intérêts d'un utilisateur par email avec intensité
+async function getUserRealInterestsByEmail(email: string): Promise<InterestWithIntensity[]> {
   try {
     // 1. Trouver l'utilisateur par email
     const userQuery = `
@@ -198,17 +211,23 @@ async function getUserRealInterestsByEmail(email: string): Promise<string[]> {
     
     const userId = userResult.rows[0].id_utilisateur;
     
-    // 2. Récupérer ses intérêts
+    // 2. Récupérer ses intérêts avec intensité
     const interestsQuery = `
-      SELECT nom_interet FROM interets
+      SELECT nom_interet, intensite, categorie FROM interets
       WHERE id_utilisateur = $1
     `;
     const interestsResult = await pool.query(interestsQuery, [userId]);
     
-    const allInterests = interestsResult.rows.map(row => row.nom_interet.toLowerCase().trim());
+    const allInterests = interestsResult.rows.map(row => ({
+      nom_interet: row.nom_interet.toLowerCase().trim(),
+      intensite: row.intensite || 3,
+      categorie: row.categorie
+    }));
     
     // 3. Vérifier que le matching est activé
-    const hasMatchingEnabled = allInterests.includes('matching_enabled');
+    const hasMatchingEnabled = allInterests.some(interest => 
+      interest.nom_interet === 'matching_enabled'
+    );
     
     if (!hasMatchingEnabled) {
       console.log(`User ${email} has not enabled matching`);
@@ -217,7 +236,7 @@ async function getUserRealInterestsByEmail(email: string): Promise<string[]> {
     
     // 4. Retourner seulement les vrais intérêts
     const realInterests = allInterests.filter(interest => 
-      interest !== 'matching_enabled'
+      interest.nom_interet !== 'matching_enabled'
     );
     
     return realInterests;
@@ -263,21 +282,72 @@ async function getReservationsWithFreeSpots() {
   }
 }
 
-// Calculer le score de matching simple basé uniquement sur les intérêts communs
-function calculateSimpleMatchScore(
-  userInterests: string[], 
-  ownerInterests: string[], 
-  commonInterests: string[]
+// Calculer le score de matching avancé basé sur l'intensité et les catégories
+function calculateAdvancedMatchScore(
+  userInterests: InterestWithIntensity[], 
+  ownerInterests: InterestWithIntensity[], 
+  commonInterests: InterestWithIntensity[]
 ): number {
   if (commonInterests.length === 0) {
     return 0;
   }
   
-  // Score basé sur le pourcentage d'intérêts communs
-  const totalUniqueInterests = new Set([...userInterests, ...ownerInterests]).size;
-  const score = (commonInterests.length / totalUniqueInterests) * 100;
+  let totalWeightedScore = 0;
+  let totalComparisons = 0;
   
-  return Math.round(score);
+  // Pour chaque intérêt commun, calculer le score pondéré
+  for (const userInterest of commonInterests) {
+    const ownerInterest = ownerInterests.find(oi => oi.nom_interet === userInterest.nom_interet);
+    if (!ownerInterest) continue;
+    
+    // Calculer la moyenne des intensités
+    const avgIntensity = (userInterest.intensite + ownerInterest.intensite) / 2;
+    
+    // Appliquer le bonus de catégorie
+    const categoryBonus = getCategoryBonus(userInterest.categorie);
+    
+    // Score pondéré pour cet intérêt
+    const interestScore = avgIntensity * categoryBonus;
+    
+    totalWeightedScore += interestScore;
+    totalComparisons++;
+  }
+  
+  if (totalComparisons === 0) {
+    return 0;
+  }
+  
+  // Score de base = moyenne des scores d'intérêts communs
+  const baseScore = totalWeightedScore / totalComparisons;
+  
+  // Bonus pour avoir plus d'intérêts communs
+  const commonInterestsBonus = Math.min(commonInterests.length * 0.1, 0.4);
+  
+  const finalScore = baseScore * (1 + commonInterestsBonus);
+  
+  return Math.round(Math.min(finalScore, 100));
+}
+
+// Bonus de catégorie pour pondérer certains types d'intérêts
+function getCategoryBonus(categorie?: string): number {
+  if (!categorie) return 1.0;
+  
+  const categoryWeights: { [key: string]: number } = {
+    'Cuisine': 1.4,     // Très important - partage de repas
+    'Travel': 1.3,      // Excellent sujet de conversation au repas
+    'Music': 1.2,       // Crée une bonne ambiance
+    'Movies': 1.2,      // Sujet de conversation facile
+    'Culture': 1.2,     // Discussions enrichissantes
+    'Books': 1.1,       // Conversations intéressantes
+    'Art': 1.1,         // Sujets culturels
+    'Sports': 1.0,      // Neutre - dépend du contexte
+    'Technology': 0.9,  // Peut créer des débats
+    'Politics': 0.8,    // Risque de conflits au repas
+    'Wellness': 0.9,    // Restrictions alimentaires potentielles
+    'Hobbies': 1.5      // Grand sujet de conversation 
+  };
+  
+  return categoryWeights[categorie] || 1.0;
 }
 
 // Statistiques simplifiées
