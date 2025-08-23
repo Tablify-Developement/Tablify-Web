@@ -44,7 +44,8 @@ export const authMiddleware = async (
         }
 
         // Contrôle de l'email vérifié (ajustez le nom du champ si besoin)
-        if (!user.emailVerified) {
+        // Skip email verification in development
+        if (process.env.NODE_ENV !== 'development' && !user.emailVerified) {
             logger.warn(`Email non vérifié pour l'utilisateur ${decoded.id}`);
             res.status(403).json({ error: 'Email non vérifié' });
             return;

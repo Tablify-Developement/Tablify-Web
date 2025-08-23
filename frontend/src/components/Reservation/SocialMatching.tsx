@@ -244,7 +244,7 @@ export default function SocialMatchingPage() {
                         Join compatible dining companions based on your shared interests
                     </p>
                 </div>
-                <a href="/book" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-secondary text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80 transition-colors">
+                <a href="/" className="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-secondary text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 dark:bg-secondary dark:text-secondary-foreground dark:hover:bg-secondary/80 transition-colors">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     Make a Reservation
                 </a>

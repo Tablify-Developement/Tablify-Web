@@ -105,7 +105,9 @@ export const UtilisateurController = {
                 res.status(401).json({ error: 'Invalid email or password' });
                 return;
             }
-            if (!user.emailVerified) {
+            
+            // Skip email verification in development
+            if (process.env.NODE_ENV !== 'development' && !user.emailVerified) {
                 res
                     .status(403)
                     .json({ error: 'Vous devez vérifier votre email avant de vous connecter.' });
