@@ -362,18 +362,24 @@ export default function SocialMatchingPage() {
                                 </div>
 
                                 {/* Common Interests */}
-                                <div>
-                                    <p className="text-xs font-medium text-muted-foreground mb-2">Common Interests:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {match.interets_communs.slice(0, 3).map((interet, index) => (
-                                            <Badge key={index} variant="outline" className="text-xs py-0">
-                                                {typeof interet === 'string' ? interet : interet.nom_interet}
-                                            </Badge>
-                                        ))}
-                                        {match.interets_communs.length > 3 && (
-                                            <Badge variant="outline" className="text-xs py-0">
-                                                +{match.interets_communs.length - 3} more
-                                            </Badge>
+                                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                    <p className="text-sm font-medium text-blue-800 mb-2">Common Interests:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {match.interets_communs && match.interets_communs.length > 0 ? (
+                                            <>
+                                                {match.interets_communs.slice(0, 4).map((interet, index) => (
+                                                    <Badge key={index} variant="secondary" className="text-xs bg-blue-100 text-blue-800 hover:bg-blue-200">
+                                                        {typeof interet === 'string' ? interet : interet.nom_interet}
+                                                    </Badge>
+                                                ))}
+                                                {match.interets_communs.length > 4 && (
+                                                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                                                        +{match.interets_communs.length - 4} more
+                                                    </Badge>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span className="text-xs text-gray-500">No common interests found</span>
                                         )}
                                     </div>
                                 </div>
