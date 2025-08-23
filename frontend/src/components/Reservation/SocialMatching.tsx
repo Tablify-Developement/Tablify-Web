@@ -47,7 +47,7 @@ interface MatchingReservation {
     party_size: number;
     available_spots: number;
     score_matching: number;
-    interets_communs: string[];
+    interets_communs: (string | { nom_interet: string; intensite: number; categorie: string })[];
     restaurant: {
         address: string;
         contact: string;
@@ -96,7 +96,10 @@ export default function SocialMatchingPage() {
         const filtered = matches.filter(match => {
             const matchesSearch = match.restaurant_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 match.restaurant.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                match.interets_communs.some(interet => interet.toLowerCase().includes(searchQuery.toLowerCase()));
+                match.interets_communs.some(interet => {
+                    const interetName = typeof interet === 'string' ? interet : interet.nom_interet;
+                    return interetName.toLowerCase().includes(searchQuery.toLowerCase());
+                });
 
             const matchesType = typeFilter === 'all' || match.restaurant_type.toLowerCase() === typeFilter.toLowerCase();
 
@@ -364,7 +367,7 @@ export default function SocialMatchingPage() {
                                     <div className="flex flex-wrap gap-1">
                                         {match.interets_communs.slice(0, 3).map((interet, index) => (
                                             <Badge key={index} variant="outline" className="text-xs py-0">
-                                                {interet}
+                                                {typeof interet === 'string' ? interet : interet.nom_interet}
                                             </Badge>
                                         ))}
                                         {match.interets_communs.length > 3 && (
@@ -444,7 +447,7 @@ export default function SocialMatchingPage() {
                                 <div className="flex flex-wrap gap-2">
                                     {selectedMatch.interets_communs.map((interet, index) => (
                                         <Badge key={index} variant="secondary">
-                                            {interet}
+                                            {typeof interet === 'string' ? interet : interet.nom_interet}
                                         </Badge>
                                     ))}
                                 </div>
