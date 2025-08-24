@@ -276,6 +276,7 @@ async function getReservationsWithFreeSpots() {
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND rr.party_size < 8
+        AND rr.is_social_dining = true
       ORDER BY rr.reservation_date, rr.reservation_time
     `;
 
@@ -409,6 +410,7 @@ async function getTotalReservationsWithFreeSpots(): Promise<number> {
       WHERE rr.status IN ('confirmed', 'pending')
         AND rr.reservation_date >= CURRENT_DATE
         AND rr.party_size < 8
+        AND rr.is_social_dining = true
     `;
     
     const result = await pool.query(query);
