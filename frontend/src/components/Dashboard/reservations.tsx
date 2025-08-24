@@ -538,11 +538,11 @@ export default function ReservationsPage() {
             </div>
 
             <Tabs defaultValue={currentTab} value={currentTab} onValueChange={setCurrentTab}>
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
                     <TabsTrigger value="today">Today</TabsTrigger>
                     <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
                     <TabsTrigger value="past">Past</TabsTrigger>
-                    <TabsTrigger value="all">All Reservations</TabsTrigger>
+                    <TabsTrigger value="all">All</TabsTrigger>
                 </TabsList>
 
                 <div className="mt-6">
@@ -611,7 +611,7 @@ export default function ReservationsPage() {
                                 </div>
                             ) : (
                                 <>
-                                    <div className="rounded-md border overflow-hidden">
+                                    <div className="overflow-x-auto">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
@@ -627,7 +627,7 @@ export default function ReservationsPage() {
                                             <TableBody>
                                                 {paginatedReservations.map((reservation) => (
                                                     <TableRow key={reservation.id}>
-                                                        <TableCell>
+                                                        <TableCell className="min-w-[150px]">
                                                             <div className="font-medium">{reservation.customer_name}</div>
                                                             <div className="text-sm text-muted-foreground flex items-center gap-1 md:hidden">
                                                                 <Clock className="h-3 w-3" />
@@ -637,8 +637,14 @@ export default function ReservationsPage() {
                                                                 <Phone className="h-3 w-3" />
                                                                 {reservation.customer_phone}
                                                             </div>
+                                                            {reservation.is_social_dining && (
+                                                                <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs w-fit mt-1 lg:hidden">
+                                                                    <UserPlus className="h-3 w-3" />
+                                                                    Social Dining
+                                                                </div>
+                                                            )}
                                                         </TableCell>
-                                                        <TableCell className="hidden md:table-cell">
+                                                        <TableCell className="hidden md:table-cell min-w-[120px]">
                                                             <div className="font-medium">{new Date(reservation.reservation_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                                                             <div className="text-sm text-muted-foreground">{reservation.reservation_time}</div>
                                                         </TableCell>
@@ -667,7 +673,7 @@ export default function ReservationsPage() {
                                                             </span>
                                                         </TableCell>
                                                         <TableCell className="text-right">
-                                                            <div className="flex items-center justify-end gap-1">
+                                                            <div className="flex flex-col sm:flex-row items-end sm:items-center justify-end gap-1">
                                                                 {reservation.status === 'pending' && (
                                                                     <Button
                                                                         variant="ghost"
@@ -731,7 +737,7 @@ export default function ReservationsPage() {
 
                                     {/* Pagination controls */}
                                     {totalPages > 1 && (
-                                        <div className="flex items-center justify-between mt-4">
+                                        <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
                                             <div className="text-sm text-muted-foreground">
                                                 Showing {((currentPage - 1) * reservationsPerPage) + 1} to {Math.min(currentPage * reservationsPerPage, filteredReservations.length)} of {filteredReservations.length} reservations
                                             </div>
@@ -767,7 +773,7 @@ export default function ReservationsPage() {
 
             {/* Reservation Form Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
                             {editingReservation ? 'Edit Reservation' : 'New Reservation'}
@@ -780,7 +786,7 @@ export default function ReservationsPage() {
                     </DialogHeader>
 
                     <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="customer_name">
                                     Guest Name *
@@ -806,7 +812,7 @@ export default function ReservationsPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="date">
                                     Date *
@@ -832,7 +838,7 @@ export default function ReservationsPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="guests">
                                     Number of Guests *
@@ -883,8 +889,8 @@ export default function ReservationsPage() {
                         </div>
                     </div>
 
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <Button variant="outline" onClick={() => setIsDialogOpen(false)} className="w-full sm:w-auto">
                             Cancel
                         </Button>
                         <Button
@@ -897,6 +903,7 @@ export default function ReservationsPage() {
                                 !newReservation.party_size ||
                                 !newReservation.table_id
                             }
+                            className="w-full sm:w-auto"
                         >
                             {editingReservation ? 'Update Reservation' : 'Create Reservation'}
                         </Button>
