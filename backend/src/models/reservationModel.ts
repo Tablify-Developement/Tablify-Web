@@ -13,6 +13,7 @@ export const ReservationModel = {
         reservation_date: string,
         reservation_time: string,
         special_requests: string = "",
+        is_social_dining: boolean = false,
         status: string = "pending"
     ) {
         try {
@@ -24,16 +25,16 @@ export const ReservationModel = {
                 INSERT INTO restaurant_reservations(
                     restaurant_id, table_id, customer_name, customer_email,
                     customer_phone, party_size, reservation_date, reservation_time,
-                    end_time, special_requests, status
+                    end_time, special_requests, is_social_dining, status
                 )
-                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                     RETURNING *
             `;
 
             const values = [
                 restaurant_id, table_id, customer_name, customer_email,
                 customer_phone, party_size, reservation_date, reservation_time,
-                endTime, special_requests, status
+                endTime, special_requests, is_social_dining, status
             ];
 
             const result = await db.query(query, values);
@@ -379,7 +380,7 @@ export const ReservationModel = {
                 SET
                     status = 'cancelled',
                     special_requests = CASE
-                                           WHEN $2 != '' THEN CONCAT('Cancellation reason: ', $2)
+                                           WHEN $2 != '' THEN 'Cancellation reason: ' || $2
                                            ELSE 'Cancelled by user'
                         END
                 WHERE id = $1

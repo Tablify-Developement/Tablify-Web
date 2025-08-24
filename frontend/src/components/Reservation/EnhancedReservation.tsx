@@ -49,6 +49,9 @@ import {
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { ImageIcon } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import interetService from '@/services/interetService';
+import { Switch } from '@/components/ui/switch';
 
 // Import API_BASE_URL from centralized constants file
 import { API_BASE_URL } from '@/lib/constants';
@@ -93,12 +96,14 @@ interface ReservationFormData {
     party_size: number;
     special_requests: string;
     table_id?: number;
+    is_social_dining?: boolean;
 }
 
 type BookingStep = 'datetime' | 'table' | 'contact';
 
 export default function EnhancedBookingPage() {
     const router = useRouter();
+    const { user } = useAuth();
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -118,6 +123,8 @@ export default function EnhancedBookingPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
+    const [userMatchingEnabled, setUserMatchingEnabled] = useState(false);
+    const [isLoadingMatchingStatus, setIsLoadingMatchingStatus] = useState(false);
 
     const [reservationForm, setReservationForm] = useState<ReservationFormData>({
         restaurant_id: 0,
@@ -128,7 +135,8 @@ export default function EnhancedBookingPage() {
         time: '',
         party_size: 2,
         special_requests: '',
-        table_id: undefined
+        table_id: undefined,
+        is_social_dining: false
     });
 
     // Fetch restaurant image
@@ -176,6 +184,37 @@ export default function EnhancedBookingPage() {
 
         return false;
     };
+
+    // Fetch user matching status on mount
+    useEffect(() => {
+        const fetchUserMatchingStatus = async () => {
+            if (!user) return;
+            
+            setIsLoadingMatchingStatus(true);
+            try {
+                const response = await interetService.getMatchingStatus();
+                const matchingEnabled = response.data.matching_enabled || false;
+                setUserMatchingEnabled(matchingEnabled);
+                
+                // Set default value for Social Dining toggle based on user's matching preference
+                setReservationForm(prev => ({
+                    ...prev,
+                    is_social_dining: matchingEnabled
+                }));
+            } catch (error) {
+                console.error('Error fetching matching status:', error);
+                setUserMatchingEnabled(false);
+                setReservationForm(prev => ({
+                    ...prev,
+                    is_social_dining: false
+                }));
+            } finally {
+                setIsLoadingMatchingStatus(false);
+            }
+        };
+        
+        fetchUserMatchingStatus();
+    }, [user]);
 
     // Load restaurants on mount - Filter out non-approved restaurants
     useEffect(() => {
@@ -258,7 +297,8 @@ export default function EnhancedBookingPage() {
             restaurant_id: restaurant.id,
             date: undefined,
             time: '',
-            table_id: undefined
+            table_id: undefined,
+            is_social_dining: userMatchingEnabled // Reset to user's default preference
         });
         setBookingStep('datetime');
         setAvailableTimeSlots([]);
@@ -403,6 +443,14 @@ export default function EnhancedBookingPage() {
         }));
     };
 
+    // Handle Social Dining toggle
+    const handleSocialDiningToggle = (checked: boolean) => {
+        setReservationForm(prev => ({
+            ...prev,
+            is_social_dining: checked
+        }));
+    };
+
     // Navigate to next step
     const handleNextStep = () => {
         if (bookingStep === 'datetime' && reservationForm.time && reservationForm.date) {
@@ -454,7 +502,8 @@ export default function EnhancedBookingPage() {
                 reservation_time: reservationForm.time,
                 party_size: reservationForm.party_size,
                 special_requests: reservationForm.special_requests,
-                table_id: reservationForm.table_id
+                table_id: reservationForm.table_id,
+                is_social_dining: reservationForm.is_social_dining
             };
 
             console.log('🔍 Interface - Données envoyées:', reservationData);
@@ -480,7 +529,8 @@ export default function EnhancedBookingPage() {
                     time: '',
                     party_size: 2,
                     special_requests: '',
-                    table_id: undefined
+                    table_id: undefined,
+                    is_social_dining: userMatchingEnabled
                 });
                 setAvailableTables([]);
                 setAvailableTimeSlots([]);
@@ -936,6 +986,56 @@ export default function EnhancedBookingPage() {
                                                 placeholder="Allergies, special occasions, seating preferences, etc."
                                                 className="min-h-[80px]"
                                             />
+                                        </div>
+
+                                        {/* Social Dining Toggle */}
+                                        <div className={`p-4 rounded-lg border-2 transition-colors ${
+                                            reservationForm.is_social_dining 
+                                                ? 'bg-blue-50 border-blue-200' 
+                                                : 'bg-gray-50 border-gray-200'
+                                        }`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center space-x-3">
+                                                    <Users className={`h-5 w-5 ${
+                                                        reservationForm.is_social_dining 
+                                                            ? 'text-blue-600' 
+                                                            : 'text-gray-600'
+                                                    }`} />
+                                                    <div>
+                                                        <h4 className="font-medium text-slate-900">Social Dining</h4>
+                                                        <p className={`text-sm ${
+                                                            reservationForm.is_social_dining 
+                                                                ? 'text-blue-700' 
+                                                                : 'text-gray-700'
+                                                        }`}>
+                                                            {reservationForm.is_social_dining 
+                                                                ? "Allow other users to join your table for a shared dining experience"
+                                                                : "Private reservation - no matching with other users"
+                                                            }
+                                                        </p>
+                                                        {userMatchingEnabled && (
+                                                            <p className="text-xs text-blue-600 mt-1">
+                                                                Default: {userMatchingEnabled ? 'Enabled' : 'Disabled'} (based on your profile settings)
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center space-x-2">
+                                                    {isLoadingMatchingStatus && (
+                                                        <Loader2 className={`h-4 w-4 animate-spin ${
+                                                            reservationForm.is_social_dining 
+                                                                ? 'text-blue-600' 
+                                                                : 'text-gray-600'
+                                                        }`} />
+                                                    )}
+                                                    <Switch 
+                                                        checked={reservationForm.is_social_dining || false}
+                                                        onCheckedChange={handleSocialDiningToggle}
+                                                        disabled={isLoadingMatchingStatus}
+                                                        className={reservationForm.is_social_dining ? "data-[state=checked]:bg-blue-600" : ""}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS restaurant_reservations (
                                                        end_time TIME NOT NULL,
                                                        status VARCHAR(50) DEFAULT 'confirmed', -- 'pending', 'confirmed', 'cancelled', 'completed'
                                                        special_requests TEXT,
+                                                       is_social_dining BOOLEAN DEFAULT FALSE,
                                                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                                                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

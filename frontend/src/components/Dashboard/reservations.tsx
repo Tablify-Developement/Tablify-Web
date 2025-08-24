@@ -75,7 +75,8 @@ import {
     ChevronRight,
     Trash2,
     Edit,
-    Phone
+    Phone,
+    UserPlus
 } from 'lucide-react';
 
 // Define types
@@ -91,6 +92,7 @@ interface Reservation {
     table_number: string;
     status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
     special_requests: string;
+    is_social_dining?: boolean;
 }
 
 interface Table {
@@ -190,7 +192,8 @@ export default function ReservationsPage() {
                         table_id: res.table_id || 0,
                         table_number: res.table_id ? res.table_id.toString() : 'N/A',
                         status: (res.status || 'confirmed') as 'confirmed' | 'pending' | 'cancelled' | 'completed',
-                        special_requests: res.notes || ''
+                        special_requests: res.notes || '',
+                        is_social_dining: res.is_social_dining || false
                     };
                 });
 
@@ -616,6 +619,7 @@ export default function ReservationsPage() {
                                                     <TableHead className="hidden md:table-cell">Date & Time</TableHead>
                                                     <TableHead className="hidden md:table-cell">Table</TableHead>
                                                     <TableHead className="hidden md:table-cell">Guests</TableHead>
+                                                    <TableHead className="hidden lg:table-cell">Social Dining</TableHead>
                                                     <TableHead>Status</TableHead>
                                                     <TableHead className="text-right">Actions</TableHead>
                                                 </TableRow>
@@ -646,6 +650,16 @@ export default function ReservationsPage() {
                                                                 <Users className="h-4 w-4 text-muted-foreground" />
                                                                 {reservation.party_size}
                                                             </div>
+                                                        </TableCell>
+                                                        <TableCell className="hidden lg:table-cell">
+                                                            {reservation.is_social_dining ? (
+                                                                <div className="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs w-fit">
+                                                                    <UserPlus className="h-3 w-3" />
+                                                                    Social Dining
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted-foreground text-xs">-</span>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell>
                                                             <span className={`inline-block px-2 py-1 text-xs rounded-full ${getStatusBadgeClass(reservation.status)}`}>

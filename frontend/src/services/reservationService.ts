@@ -15,6 +15,7 @@ interface Reservation {
     table_id: number;
     status: string;
     notes: string;
+    is_social_dining?: boolean;
 }
 
 export interface ReservationCreate {
@@ -27,6 +28,7 @@ export interface ReservationCreate {
     party_size: number;
     special_requests?: string;
     table_id?: number;
+    is_social_dining?: boolean;
 }
 
 // Create a new reservation
@@ -44,7 +46,8 @@ export const createReservation = async (data: ReservationCreate): Promise<Reserv
             reservation_date: data.reservation_date,
             reservation_time: data.reservation_time,
             special_requests: data.special_requests || '',
-            table_id: data.table_id
+            table_id: data.table_id,
+            is_social_dining: data.is_social_dining || false
         };
 
         // Get auth token
@@ -158,7 +161,8 @@ export const getRestaurantReservations = async (restaurantId: number): Promise<R
             guests: reservation.party_size,
             table_id: reservation.table_id || 0,
             status: reservation.status || 'pending',
-            notes: reservation.special_requests || ''
+            notes: reservation.special_requests || '',
+            is_social_dining: reservation.is_social_dining || false
         }));
     } catch (error) {
         console.error("Error fetching restaurant reservations:", error);

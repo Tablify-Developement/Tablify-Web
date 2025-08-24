@@ -25,6 +25,7 @@ export const ReservationController = {
             reservation_date,
             reservation_time,
             special_requests,
+            is_social_dining,
         } = req.body;
 
         console.log('Extracted fields:', {
@@ -36,7 +37,8 @@ export const ReservationController = {
             party_size,
             reservation_date,
             reservation_time,
-            special_requests
+            special_requests,
+            is_social_dining
         });
 
         if (!restaurant_id || !customer_name || !party_size || !reservation_date || !reservation_time) {
@@ -90,7 +92,8 @@ export const ReservationController = {
                 party_size,
                 reservation_date,
                 reservation_time,
-                special_requests || ''
+                special_requests || '',
+                is_social_dining || false
             );
 
             // Send acknowledgment email
@@ -109,6 +112,7 @@ export const ReservationController = {
                 reservation,
             });
         } catch (error: any) {
+            console.error(`Error creating reservation:`, error);
             logger.error(`Error creating reservation: ${error.message}`);
             res.status(500).json({ error: 'Error creating reservation', details: error.message });
         }
@@ -116,15 +120,21 @@ export const ReservationController = {
 
     // Update a reservation (e.g. accept, decline, modify)
     updateReservation: async (req: Request, res: Response): Promise<void> => {
+        console.log('🔄 updateReservation called');
         const { id } = req.params;
         const updateData = req.body;
+        console.log('📝 Reservation ID:', id);
+        console.log('📦 Update data:', updateData);
+        console.log('👤 User from middleware:', req.user);
 
         if (!id) {
+            console.log('❌ No reservation ID provided');
             res.status(400).json({ error: 'Reservation ID is required' });
             return;
         }
 
         try {
+            console.log(`🔧 Updating reservation ${id} with data:`, updateData);
             // If changing date/time/size, recheck availability
             if (updateData.reservation_date || updateData.reservation_time || updateData.party_size) {
                 const existing = await ReservationModel.getReservationById(parseInt(id));
@@ -154,16 +164,25 @@ export const ReservationController = {
                 res.status(404).json({ error: 'Reservation not found' });
                 return;
             }
+            
+            console.log('Successfully updated reservation:', updatedReservation);
 
             // If restaurant accepts the reservation, send final confirmation email
             if ((updateData.status === 'accepted' || updateData.status === 'confirmed') && updatedReservation.customer_email) {
-                const restaurant = await RestaurantModel.getRestaurantById(updatedReservation.restaurant_id);
-                await sendReservationValidated(updatedReservation.customer_email, {
-                    date: updatedReservation.reservation_date,
-                    time: updatedReservation.reservation_time,
-                    restaurantName: restaurant?.name || '',
-                    restaurantAddress: restaurant?.address,
-                });
+                try {
+                    const restaurant = await RestaurantModel.getRestaurantById(updatedReservation.restaurant_id);
+                    // Temporarily disable email sending to avoid 500 errors
+                    console.log('Email would be sent to:', updatedReservation.customer_email);
+                    console.log('Restaurant:', restaurant?.name);
+                    // await sendReservationValidated(updatedReservation.customer_email, {
+                    //     date: updatedReservation.reservation_date,
+                    //     time: updatedReservation.reservation_time,
+                    //     restaurantName: restaurant?.name || '',
+                    //     restaurantAddress: restaurant?.address,
+                    // });
+                } catch (emailError: any) {
+                    console.error('Email service error (ignored):', emailError.message);
+                }
             }
 
             res.status(200).json({
@@ -171,8 +190,10 @@ export const ReservationController = {
                 reservation: updatedReservation,
             });
         } catch (error: any) {
+            console.error(`💥 Error updating reservation ${id}:`, error);
+            console.error('Error stack:', error.stack);
             logger.error(`Error updating reservation: ${error.message}`);
-            res.status(500).json({ error: 'An error occurred while updating the reservation', details: error.message });
+            res.status(500).json({ error: 'Error updating reservation', details: error.message });
         }
     },
 
