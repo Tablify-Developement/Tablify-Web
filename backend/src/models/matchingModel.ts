@@ -24,6 +24,7 @@ interface InterestWithIntensity {
 // Interface pour les résultats
 interface MatchResult {
   id: number;
+  restaurant_id: number;
   restaurant_name: string;
   restaurant_type: string;
   reservation_date: string;
@@ -123,6 +124,7 @@ export const findMatches = async (criteria: MatchingCriteria): Promise<MatchResu
         
         matchResults.push({
           id: reservation.id,
+          restaurant_id: reservation.restaurant_id,
           restaurant_name: reservation.restaurant_name,
           restaurant_type: reservation.restaurant_type,
           reservation_date: reservation.reservation_date,
@@ -257,6 +259,7 @@ async function getReservationsWithFreeSpots() {
     const query = `
       SELECT 
         rr.id,
+        rr.restaurant_id,
         rr.customer_name,
         rr.customer_email,
         rr.customer_phone,

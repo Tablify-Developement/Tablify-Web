@@ -42,7 +42,7 @@ import {
 import { fetchRestaurantSettings, updateRestaurantSettings } from '@/services/restaurantService';
 // Import du service d'intérêts retiré car géré dans page.tsx
 import { useRestaurant } from '@/context/restaurant-context';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/context/auth-context';
 import axios from 'axios';
 
 // Define the type for restaurant settings
@@ -57,7 +57,7 @@ interface RestaurantSettings {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export default function SettingsPage() {
-    const { data: session } = useSession();
+    const { user } = useAuth();
     const { selectedRestaurant } = useRestaurant();
     const restaurantId = selectedRestaurant?.id || 0;
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +217,14 @@ export default function SettingsPage() {
     const handleUploadImage = async () => {
         if (!selectedFile || !restaurantId) return;
 
+        console.log('🚀 Starting image upload...');
+        console.log('📁 Selected file:', {
+            name: selectedFile.name,
+            size: selectedFile.size,
+            type: selectedFile.type
+        });
+        console.log('🏪 Restaurant ID:', restaurantId);
+
         setIsImageLoading(true);
         setMessage({ type: '', text: '' });
 
@@ -224,21 +232,36 @@ export default function SettingsPage() {
             // Create form data for file upload
             const formData = new FormData();
             formData.append('image', selectedFile);
+            console.log('📦 FormData created');
 
+            // Get auth token from localStorage
+            const token = localStorage.getItem('authToken');
+            console.log('🔑 Auth token:', token ? `Present (${token.substring(0, 20)}...)` : 'Missing');
+            
+            const url = `${API_BASE_URL}/restaurants/${restaurantId}/image`;
+            console.log('🌐 Request URL:', url);
+            
+            const headers = {
+                'Content-Type': 'multipart/form-data',
+                'Authorization': `Bearer ${token}`
+            };
+            console.log('📋 Request headers:', headers);
+
+            console.log('📤 Sending request...');
+            
             // Send the file to the backend
-            const response = await axios.post(
-                `${API_BASE_URL}/restaurants/${restaurantId}/image`,
-                formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    }
-                }
-            );
+            const response = await axios.post(url, formData, { headers });
+            
+            console.log('✅ Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                data: response.data
+            });
 
             // Update current image with the new one
             if (response.data && response.data.image) {
                 setCurrentImage(response.data.image);
+                console.log('🖼️ Image updated:', response.data.image);
             }
 
             // Reset file selection
@@ -253,10 +276,22 @@ export default function SettingsPage() {
             });
 
         } catch (error: any) {
-            console.error('Error uploading image:', error);
+            console.error('💥 Upload error details:', {
+                message: error.message,
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                headers: error.response?.headers,
+                config: {
+                    url: error.config?.url,
+                    method: error.config?.method,
+                    headers: error.config?.headers
+                }
+            });
+            
             setMessage({
                 type: 'error',
-                text: error.response?.data?.error || 'Failed to upload image. Please try again.'
+                text: error.response?.data?.error || error.response?.data?.details || 'Failed to upload image. Please try again.'
             });
         } finally {
             setIsImageLoading(false);
@@ -270,7 +305,14 @@ export default function SettingsPage() {
         setMessage({ type: '', text: '' });
 
         try {
-            await axios.delete(`${API_BASE_URL}/restaurants/${restaurantId}/image`);
+            // Get auth token from localStorage
+            const token = localStorage.getItem('authToken');
+            
+            await axios.delete(`${API_BASE_URL}/restaurants/${restaurantId}/image`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
             setCurrentImage(null);
             setMessage({
                 type: 'success',

@@ -368,38 +368,77 @@ export const RestaurantController = {
     // Add to your RestaurantController
     uploadRestaurantImage: async (req: FileRequest, res: Response) => {
         const { id } = req.params;
+        
+        console.log('🖼️ Upload image request for restaurant ID:', id);
+        console.log('📁 File received:', req.file ? 'Yes' : 'No');
+        console.log('👤 User from auth:', req.user ? req.user.id : 'No user');
 
         if (!id) {
-            res.status(400).json({ error: 'Restauran    t ID is required' });
+            console.log('❌ No restaurant ID provided');
+            res.status(400).json({ error: 'Restaurant ID is required' });
             return;
         }
 
         if (!req.file) {
+            console.log('❌ No file provided');
             res.status(400).json({ error: 'Image file is required' });
             return;
         }
 
         try {
-            // Get just the filename part
-            const imagePath = path.basename(req.file.path);
+            console.log('📂 File details:', {
+                originalname: req.file.originalname,
+                mimetype: req.file.mimetype,
+                size: req.file.size,
+                path: req.file.path
+            });
 
-            // Check if restaurant exists
-            const restaurant = await RestaurantModel.getRestaurantById(Number(id));
-            if (!restaurant) {
-                res.status(404).json({ error: 'Restaurant not found' });
+            // Test database connection and table existence
+            console.log('🔍 Testing database connection...');
+            const db = await import('../config/database');
+            const dbTest = await db.default.query('SELECT current_database() as db_name');
+            console.log('📊 Connected to database:', dbTest.rows[0]?.db_name);
+            
+            const tableTest = await db.default.query("SELECT table_name FROM information_schema.tables WHERE table_name = 'restaurant_images'");
+            console.log('🗂️ Table restaurant_images exists:', tableTest.rows.length > 0 ? 'YES' : 'NO');
+            
+            if (tableTest.rows.length === 0) {
+                console.log('❌ Table restaurant_images not found in current database');
+                res.status(500).json({ error: 'Database table restaurant_images not found' });
                 return;
             }
 
+            // Get just the filename part
+            const imagePath = path.basename(req.file.path);
+            console.log('💾 Image path to save:', imagePath);
+
+            // Check if restaurant exists
+            console.log('🔍 Checking if restaurant exists...');
+            const restaurant = await RestaurantModel.getRestaurantById(Number(id));
+            if (!restaurant) {
+                console.log('❌ Restaurant not found');
+                res.status(404).json({ error: 'Restaurant not found' });
+                return;
+            }
+            console.log('✅ Restaurant found:', restaurant.restaurant_name);
+
             // Save the image path to the database
+            console.log('💾 Saving image to database...');
             await RestaurantModel.saveRestaurantImage(Number(id), imagePath);
+            console.log('✅ Image saved successfully');
 
             res.status(200).json({
                 message: 'Restaurant image uploaded successfully',
                 image: imagePath
             });
         } catch (error: any) {
+            console.error('💥 Error in uploadRestaurantImage:', error);
+            console.error('Stack trace:', error.stack);
             logger.error(`Error uploading restaurant image: ${error.message}`);
-            res.status(500).json({ error: 'An error occurred while uploading the restaurant image' });
+            res.status(500).json({ 
+                error: 'An error occurred while uploading the restaurant image',
+                details: error.message 
+            });
         }
     },
 

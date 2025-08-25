@@ -620,9 +620,9 @@ export default function EnhancedBookingPage() {
                     {filteredRestaurants.map((restaurant) => (
                         <Card key={restaurant.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                             <div className="h-48 bg-muted relative">
-                                {restaurant.image ? (
+                                {getRestaurantImageUrl(restaurant.id) ? (
                                     <img
-                                        src={restaurant.image}
+                                        src={getRestaurantImageUrl(restaurant.id)!}
                                         alt={restaurant.name}
                                         className="w-full h-full object-cover"
                                     />

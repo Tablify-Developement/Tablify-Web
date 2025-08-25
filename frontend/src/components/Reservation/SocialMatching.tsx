@@ -36,9 +36,11 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/context/auth-context';
+import axios from 'axios';
 
 interface MatchingReservation {
     id: number;
+    restaurant_id: number;
     restaurant_name: string;
     restaurant_type: string;
     reservation_date: string;
@@ -80,6 +82,9 @@ export default function SocialMatchingPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isJoining, setIsJoining] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
+
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
     // Load matches on mount
     useEffect(() => {
@@ -109,6 +114,27 @@ export default function SocialMatchingPage() {
         setFilteredMatches(filtered);
     }, [searchQuery, typeFilter, matches]);
 
+    // Fetch restaurant image
+    const fetchRestaurantImage = async (restaurantId: number) => {
+        try {
+            const response = await axios.get(`${API_BASE_URL}/restaurants/${restaurantId}/image`);
+            if (response.data && response.data.image) {
+                return response.data.image;
+            }
+            return null;
+        } catch (error) {
+            console.error(`Error fetching image for restaurant ${restaurantId}:`, error);
+            return null;
+        }
+    };
+
+    // Get restaurant image URL
+    const getRestaurantImageUrl = (restaurantId: number) => {
+        const imageFilename = restaurantImages[restaurantId];
+        if (!imageFilename) return null;
+        return `${API_BASE_URL}/uploads/${imageFilename}`;
+    };
+
     const fetchMatches = async () => {
         setIsLoading(true);
         try {
@@ -133,6 +159,24 @@ export default function SocialMatchingPage() {
                 const data = await response.json();
                 setMatches(data.matches || []);
                 setFilteredMatches(data.matches || []);
+
+                // Fetch images for all restaurants in matches
+                if (data.matches && data.matches.length > 0) {
+                    // Extract restaurant IDs from matches - use restaurant_id not reservation id
+                    const uniqueRestaurantIds = [...new Set(data.matches.map((match: MatchingReservation) => match.restaurant_id))] as number[];
+                    const imagesPromises = uniqueRestaurantIds.map(async (restaurantId: number) => {
+                        const image = await fetchRestaurantImage(restaurantId);
+                        return { id: restaurantId, image };
+                    });
+
+                    const imagesResults = await Promise.all(imagesPromises);
+                    const imagesMap: Record<number, string | null> = {};
+                    imagesResults.forEach(item => {
+                        imagesMap[item.id] = item.image;
+                    });
+
+                    setRestaurantImages(imagesMap);
+                }
             } else {
                 console.error('Error fetching matches:', response.statusText);
                 setMatches([]);
@@ -321,10 +365,20 @@ export default function SocialMatchingPage() {
                                 </div>
 
                                 {/* Restaurant Header */}
-                                <div className="h-24 bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center">
-                                    <span className="text-2xl font-semibold text-primary">
-                                        {match.restaurant_name.charAt(0)}
-                                    </span>
+                                <div className="h-24 bg-muted relative">
+                                    {getRestaurantImageUrl(match.restaurant_id) ? (
+                                        <img
+                                            src={getRestaurantImageUrl(match.restaurant_id)!}
+                                            alt={match.restaurant_name}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center">
+                                            <span className="text-2xl font-semibold text-primary">
+                                                {match.restaurant_name.charAt(0)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
