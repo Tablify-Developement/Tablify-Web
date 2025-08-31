@@ -11,7 +11,7 @@ export default function AdminDebug() {
     const [loading, setLoading] = useState<string>('');
     const { user } = useAuth();
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'tablify-web-n6fn.onrender.com/api';
 
     const testEndpoint = async (name: string, url: string, method = 'GET') => {
         setLoading(name);

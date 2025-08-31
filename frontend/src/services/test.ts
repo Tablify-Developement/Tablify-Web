@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api/test'; // Replace with your backend URL
+const API_URL = 'tablify-web-n6fn.onrender.com/api'; // Replace with your backend URL
 
 // Fetch test tasks
 export const fetchTest = async () => {
