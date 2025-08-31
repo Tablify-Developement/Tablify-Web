@@ -58,7 +58,7 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 // API configuration
 const getApiConfig = () => {
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
     const token = localStorage.getItem('authToken');
 
     return {

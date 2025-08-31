@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API base URL defined directly in the service
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
 
 // Interface for centers of interests (corresponds to the interets table in PostgreSQL)
 export interface Interet {

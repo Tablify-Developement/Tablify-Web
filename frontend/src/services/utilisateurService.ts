@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
 
 // Updated User interface to match backend
 interface Utilisateur {

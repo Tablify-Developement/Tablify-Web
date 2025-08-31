@@ -84,7 +84,7 @@ export default function SocialMatchingPage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
 
     // Load matches on mount
     useEffect(() => {

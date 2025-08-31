@@ -6,7 +6,7 @@ import { User } from '@/context/auth-context';
 // Setup axios with interceptors for authentication
 export const setupAuthInterceptors = (token: string | null) => {
     // Set default base URL
-    axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL;
+    axios.defaults.baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
 
     // Clear any existing interceptors
     axios.interceptors.request.clear();
