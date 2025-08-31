@@ -14,7 +14,7 @@ export default function VerifyTokenPage() {
 
     useEffect(() => {
         if (!token) return;
-        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001'}/api/users/verify/${token}`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/verify/${token}`)
             .then(res => {
                 if (res.ok) return res.json();
                 throw new Error();

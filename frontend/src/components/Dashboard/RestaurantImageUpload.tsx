@@ -9,7 +9,7 @@ import { Loader2, ImageIcon, X, Upload } from "lucide-react";
 import { useRestaurant } from '@/context/restaurant-context';
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'tablify-web-n6fn.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export function RestaurantImageUpload() {
     const { selectedRestaurant } = useRestaurant();

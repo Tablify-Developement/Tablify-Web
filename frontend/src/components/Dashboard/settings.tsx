@@ -53,8 +53,8 @@ interface RestaurantSettings {
     contact: string;
     description: string;
 }
-localhost:3001/api
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'tablify-web-n6fn.onrender.com/api';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function SettingsPage() {
     const { user } = useAuth();

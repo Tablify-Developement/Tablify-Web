@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // API base URL defined directly in the service
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Interface for centers of interests (corresponds to the interets table in PostgreSQL)
 export interface Interet {

@@ -1,7 +1,7 @@
 // File: src/services/adminService.ts
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'tablify-web-n6fn.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Type definitions for admin operations
 interface User {

@@ -2,7 +2,7 @@
 import axios from 'axios';
 import {GalleryVerticalEnd} from "lucide-react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://tablify-web-n6fn.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // Type definitions
 interface Restaurant {

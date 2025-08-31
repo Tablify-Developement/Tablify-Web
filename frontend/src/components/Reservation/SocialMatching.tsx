@@ -84,7 +84,7 @@ export default function SocialMatchingPage() {
     const [message, setMessage] = useState({ type: '', text: '' });
     const [restaurantImages, setRestaurantImages] = useState<Record<number, string | null>>({});
 
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
     // Load matches on mount
     useEffect(() => {
@@ -148,7 +148,7 @@ export default function SocialMatchingPage() {
                 return;
             }
             
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/matching/matches`, {
+            const response = await fetch(`${API_BASE_URL}/api/matching/matches`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -206,7 +206,7 @@ export default function SocialMatchingPage() {
             const token = localStorage.getItem('authToken');
             
             // Rejoindre directement la réservation en augmentant le party_size
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/matching/join-reservation`, {
+            const response = await fetch(`${API_BASE_URL}/api/matching/join-reservation`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
