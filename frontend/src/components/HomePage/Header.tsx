@@ -64,7 +64,7 @@ export function Header() {
                     </div>
 
                     <nav className="flex items-center space-x-4">
-                        <Link href="/book">
+                        <Link href="/">
                             <Button variant="ghost">Restaurants</Button>
                         </Link>
                         <ModeToggle />
